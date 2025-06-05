@@ -19,13 +19,15 @@ class UserCreateView(APIView):
     def post(self, request):
         user = UserSerializer(data=request.data)
         if user.is_valid():
-            user.save()
-            MailUtils.send_verification_email(user)
+            data=user.save()
+            MailUtils.send_verification_email(data)
             return Response({
                 "message": "Registration successful. A verification email has been sent.",
                 "status": status.HTTP_201_CREATED
             })
         return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    
     
 
 class VerifyEmailView(View):

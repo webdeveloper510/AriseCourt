@@ -3,7 +3,8 @@ from django.core.mail import send_mail
 from django.template.loader import render_to_string
 
 class MailUtils:
-    def send_verification_email(self, user):
+    @staticmethod
+    def send_verification_email(user):
             verification_link = f"http://localhost:8000/verify-email/{user.uuid}/"
             subject = "Verify Your Email - Arise Court"
             html_message = render_to_string("email_verification_template/email.html", {
@@ -13,6 +14,7 @@ class MailUtils:
 
             send_mail(
                 subject=subject,
+                message= html_message,
                 from_email=settings.EMAIL_HOST_USER,
                 recipient_list=[user.email],
                 html_message=html_message,

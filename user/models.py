@@ -16,7 +16,7 @@ class User(BaseModel,AbstractBaseUser):
             (4, 'Court'),
     )
     user_type = models.IntegerField(choices=USER_TYPES)
-    image = models.ImageField(upload_to='profile_image')
+    image = models.ImageField(upload_to='profile_image',null=True)
     uuid = models.UUIDField(default=uuid.uuid4, editable=False)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
