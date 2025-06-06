@@ -28,3 +28,10 @@ class User(BaseModel,AbstractBaseUser):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
+    verified_otp = models.CharField(max_length=6, null=True, blank=True)
+
+class PasswordResetOTP(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    expires_at = models.DateTimeField() 
+    otp_verified = models.BooleanField(default=False)

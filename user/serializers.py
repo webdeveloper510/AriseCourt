@@ -2,7 +2,13 @@ from rest_framework import serializers
 from .models import *
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
-
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
+from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeError
+import random
+from datetime import timedelta
+from django.utils import timezone
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from .mail import MailUtils
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -29,7 +35,33 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 
-class UserLoginSerializer(serializers.ModelSerializer):
+
+
+class UserLoginSerializer(serializers.Serializer):
+    email = serializers.CharField(required=True)
+    password = serializers.CharField(required=True)
+
+
+
+class PasswordResetEmailSerializer(serializers.Serializer):
   class Meta:
-    model = User
-    fields = ['email', 'phone', 'password']
+    fields = ['email']
+
+    def validate(self, data):
+        email = data.get('email')
+        try:
+            user = User.objects.get(email=email)
+        except user.DoesNotExist:
+            raise serializers.ValidationError("User with this email does not exist.")
+
+
+        otp = str(random.randint(100000, 999999))
+        user.verified_otp = otp
+        user.save()
+
+        MailUtils.send_password_reset_email(user)
+        return data
+
+    
+
+

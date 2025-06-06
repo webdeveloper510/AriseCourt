@@ -58,9 +58,12 @@ class UserLoginView(APIView):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data.get('email')
-        phone = serializer.validated_data.get('phone')
-        password = serializer.validated_data.get('password')
+        # email = serializer.validated_data.get('email')
+        # phone = serializer.validated_data.get('phone')
+        # password = serializer.validated_data.get('password')
+        email = serializer.data.get('email')
+        print("===============",email)
+        password = serializer.data.get('password')
 
         user = authenticate(email=email,password=password)
 
@@ -71,4 +74,41 @@ class UserLoginView(APIView):
             return Response({'errors': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-       
+  
+class PasswordResetEmailView(APIView):
+    def post(self, request):
+        serializer = PasswordResetEmailSerializer(data=request.data)
+        if serializer.is_valid():
+            return Response({'message': 'Password reset OTP sent to email.'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class UserPasswordResetView(APIView):
+  def post(self, request, uid, token, format=None):
+    serializer = UserPasswordResetSerializer(data=request.data, context={'uid':uid, 'token':token})
+    serializer.is_valid(raise_exception=True)
+    return Response({'msg':'Password Reset Successfully'}, status=status.HTTP_200_OK)
