@@ -29,29 +29,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 
-class LoginSerializer(serializers.Serializer):
-    identifier = serializers.CharField()
-    password = serializers.CharField(write_only=True)
-
-    def validate(self, data):
-        identifier = data.get('identifier')
-        password = data.get('password')
-
-        user = User.objects.filter(email=identifier).first() or \
-               User.objects.filter(phone_no=identifier).first()
-
-        if user and user.check_password(password):
-            if not user.is_verified:
-                raise serializers.ValidationError("Email is not verified.")
-            
-
-            refresh = RefreshToken.for_user(user)
-            return {
-                'refresh': str(refresh),
-                'access': str(refresh.access_token),
-                'user_id': user.id,
-                'email': user.email,
-                'phone_no': user.phone_no,
-            }
-
-        raise serializers.ValidationError("Invalid credentials.")
+class UserLoginSerializer(serializers.ModelSerializer):
+  class Meta:
+    model = User
+    fields = ['email', 'phone', 'password']

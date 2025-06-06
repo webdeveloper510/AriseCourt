@@ -10,10 +10,18 @@ from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views import View
 from django.template.loader import render_to_string
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
 
 
 # Create your views here.
 
+def get_tokens_for_user(user):
+        refresh = RefreshToken.for_user(user)
+        return {
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }
 
 class UserCreateView(APIView):
     def post(self, request):
@@ -44,12 +52,23 @@ class VerifyEmailView(View):
 
 
 
-class LoginView(APIView):
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        if serializer.is_valid():
-            return Response(serializer.validated_data, status=status.HTTP_200_OK)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class UserLoginView(APIView):
+    def post(self, request, format=None):
+
+        serializer = UserLoginSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data.get('email')
+        phone = serializer.validated_data.get('phone')
+        password = serializer.validated_data.get('password')
+
+        user = authenticate(email=email,password=password)
+
+        if user is not None:
+            token = get_tokens_for_user(user)
+            return Response({'token':token,'msg':'Login Success'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'errors': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
 
-        
+       
