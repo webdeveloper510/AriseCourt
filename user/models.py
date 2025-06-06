@@ -45,3 +45,7 @@ class PasswordResetOTP(models.Model):
     otp = models.CharField(max_length=6)
     expires_at = models.DateTimeField() 
     otp_verified = models.BooleanField(default=False)
+    
+    
+    
+ 
