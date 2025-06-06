@@ -62,6 +62,8 @@ class PasswordResetEmailSerializer(serializers.Serializer):
         MailUtils.send_password_reset_email(user)
         return data
 
+
+
     
 
 

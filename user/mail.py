@@ -30,6 +30,7 @@ class MailUtils:
             subject = "Password Reset Email - Arise Court"
             html_message = render_to_string("email_verification_template/password_reset_mail.html", {
                 'user': user,
+                'otp': user.verified_otp,
                 'reset_link': reset_link,
                 })
 
