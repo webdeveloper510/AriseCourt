@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser
 from django_countries.fields import CountryField
+from .managers import CustomUserManager
 import uuid
 
 # Create your models here.
@@ -29,6 +30,15 @@ class User(BaseModel,AbstractBaseUser):
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     verified_otp = models.CharField(max_length=6, null=True, blank=True)
+
+    objects = CustomUserManager()
+
+    USERNAME_FIELD = 'email'
+
+    def __str__(self):
+        return self.email
+    
+    
 
 class PasswordResetOTP(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
