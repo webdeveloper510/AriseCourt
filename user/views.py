@@ -1,6 +1,6 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework import status
+from rest_framework import status, permissions
 from rest_framework.response import Response
 from .serializers import *
 # from django.core.mail import send_mail
@@ -12,6 +12,8 @@ from django.views import View
 # from django.template.loader import render_to_string
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated
+from django.http import Http404
 
 
 # Create your views here.
@@ -73,32 +75,40 @@ class PasswordResetEmailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class LocationView(APIView):
+    permission_classes = [IsAuthenticated]
+    def post(self, request):
+        serializer = LocationSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(user=request.user)
+            return Response({'message': 'Location added Successfully.'}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+    def get(self, request):
+        locations = Location.objects.filter(user=request.user)
+        serializer = LocationSerializer(locations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
+    def put(self, request, pk):
+        try:
+            location = Location.objects.get(pk=pk, user=request.user)
+        except Location.DoesNotExist:
+            raise Http404("Location not found")
+
+        serializer = LocationSerializer(location, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'message': 'Location updated', 'data': serializer.data})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+    def delete(self, request, pk):
+        try:
+            location = Location.objects.get(pk=pk, user=request.user)
+        except Location.DoesNotExist:
+            raise Http404("Location not found")
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-class UserPasswordResetView(APIView):
-  def post(self, request, uid, token, format=None):
-    serializer = UserPasswordResetSerializer(data=request.data, context={'uid':uid, 'token':token})
-    serializer.is_valid(raise_exception=True)
-    return Response({'msg':'Password Reset Successfully'}, status=status.HTTP_200_OK)
+        location.delete()
+        return Response({'message': 'Location deleted successfully'}, status=status.HTTP_204_NO_CONTENT)

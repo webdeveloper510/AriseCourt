@@ -6,5 +6,8 @@ urlpatterns = [
     path('login/', UserLoginView.as_view(), name='login'),
     path('send-reset-email/', PasswordResetEmailView.as_view(), name='send-reset-email'),
     path('verify-email/<uuid:uuid>/', VerifyEmailView.as_view(), name='verify_email'),
+
+    path('add_location/',LocationView.as_view(), name='add_location'),
+    path('location/<int:pk>/', LocationView.as_view(), name='location-update'),
   
 ]

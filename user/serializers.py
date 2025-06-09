@@ -63,6 +63,11 @@ class PasswordResetEmailSerializer(serializers.Serializer):
         return data
 
 
+class LocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = '__all__'
+
 
     
 

@@ -47,5 +47,17 @@ class PasswordResetOTP(models.Model):
     otp_verified = models.BooleanField(default=False)
     
     
-    
- 
+class Location(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    description = models.TextField()
+    logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
+    website = models.URLField(max_length=100,blank=True, null=True )
+    phone = models.CharField(max_length=15, unique=True)
+    email = models.EmailField(unique=True)
+    address_1 = models.TextField()
+    address_2 = models.TextField(blank=True, null=True)
+    address_3 = models.TextField(blank=True, null=True)
+    address_4 = models.TextField(blank=True, null=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
