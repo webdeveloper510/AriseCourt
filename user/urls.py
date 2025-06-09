@@ -1,5 +1,13 @@
 from django.urls import path
 from .views import *
+from rest_framework.routers import DefaultRouter
+from .views import LocationViewSet
+from django.urls import include
+
+
+router = DefaultRouter()
+router.register(r'locations', LocationViewSet, basename='location')
+
 
 urlpatterns = [
     path('register/', UserCreateView.as_view(), name="register"),
@@ -7,7 +15,6 @@ urlpatterns = [
     path('send-reset-email/', PasswordResetEmailView.as_view(), name='send-reset-email'),
     path('verify-email/<uuid:uuid>/', VerifyEmailView.as_view(), name='verify_email'),
 
-    path('add_location/',LocationView.as_view(), name='add_location'),
-    path('location/<int:pk>/', LocationView.as_view(), name='location-update'),
-  
+    path('add_location/',LocationView.as_view(), name='add_location'), 
+    path('', include(router.urls)),
 ]

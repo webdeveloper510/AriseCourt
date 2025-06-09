@@ -23,22 +23,26 @@ class MailUtils:
                 html_message=html_message,
                 fail_silently=False,
             )
-    def send_password_reset_email(user):
-            uid = urlsafe_base64_encode(force_bytes(user.id))
-            token = PasswordResetTokenGenerator().make_token(user)
-            reset_link = f"http://localhost:8000/reset-password/{uid}/{token}/"
-            subject = "Password Reset Email - Arise Court"
-            html_message = render_to_string("email_verification_template/password_reset_mail.html", {
-                'user': user,
-                'otp': user.verified_otp,
-                'reset_link': reset_link,
-                })
 
-            send_mail(
-                subject=subject,
-                message= html_message,
-                from_email=settings.EMAIL_HOST_USER,
-                recipient_list=[user.email],
-                html_message=html_message,
-                fail_silently=False,
-            )
+          
+    def send_password_reset_email(user):
+        uid = urlsafe_base64_encode(force_bytes(user.id))
+        token = PasswordResetTokenGenerator().make_token(user)
+
+        reset_link = f"http://localhost:8000/reset-password/{uid}/{token}/"
+
+        subject = "Password Reset Email - Arise Court"
+        html_message = render_to_string("email_verification_template/password_reset_mail.html", {
+            'user': user,
+            'otp': user.verified_otp,
+            'reset_link': reset_link,
+        })
+
+        send_mail(
+            subject=subject,
+            message=html_message,  
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )

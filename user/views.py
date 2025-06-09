@@ -14,7 +14,8 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.http import Http404
-
+from rest_framework.viewsets import ModelViewSet
+import random
 
 # Create your views here.
 
@@ -66,13 +67,27 @@ class VerifyEmailView(View):
         return HttpResponse("Email verified successfully! You can now log in.")
 
 
-  
 class PasswordResetEmailView(APIView):
     def post(self, request):
         serializer = PasswordResetEmailSerializer(data=request.data)
         if serializer.is_valid():
+            email = serializer.validated_data['email']
+
+            try:
+                user = User.objects.get(email=email)
+            except User.DoesNotExist:
+                return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+            otp = str(random.randint(100000, 999999))
+            user.verified_otp = otp
+            user.save()
+
+            MailUtils.send_password_reset_email(user)
+
             return Response({'message': 'Password reset OTP sent to email.'}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class LocationView(APIView):
@@ -91,24 +106,8 @@ class LocationView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-    def put(self, request, pk):
-        try:
-            location = Location.objects.get(pk=pk, user=request.user)
-        except Location.DoesNotExist:
-            raise Http404("Location not found")
-
-        serializer = LocationSerializer(location, data=request.data, partial=True)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({'message': 'Location updated', 'data': serializer.data})
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class LocationViewSet(ModelViewSet):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
 
 
-    def delete(self, request, pk):
-        try:
-            location = Location.objects.get(pk=pk, user=request.user)
-        except Location.DoesNotExist:
-            raise Http404("Location not found")
-
-        location.delete()
-        return Response({'message': 'Location deleted successfully'}, status=status.HTTP_204_NO_CONTENT)

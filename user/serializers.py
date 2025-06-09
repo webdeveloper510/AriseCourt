@@ -4,7 +4,6 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeError
-import random
 from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -44,23 +43,14 @@ class UserLoginSerializer(serializers.Serializer):
 
 
 class PasswordResetEmailSerializer(serializers.Serializer):
-  class Meta:
-    fields = ['email']
-
-    def validate(self, data):
-        email = data.get('email')
-        try:
-            user = User.objects.get(email=email)
-        except user.DoesNotExist:
-            raise serializers.ValidationError("User with this email does not exist.")
+    email = serializers.EmailField()
 
 
-        otp = str(random.randint(100000, 999999))
-        user.verified_otp = otp
-        user.save()
-
-        MailUtils.send_password_reset_email(user)
-        return data
+class UserPasswordResetSerializer(serializers.Serializer):
+    password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
+    password2 = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
+    class Meta:
+        fields = ['password', 'password2']
 
 
 class LocationSerializer(serializers.ModelSerializer):
