@@ -46,11 +46,15 @@ class PasswordResetEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
 
-class UserPasswordResetSerializer(serializers.Serializer):
-    password = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
-    password2 = serializers.CharField(max_length=255, style={'input_type':'password'}, write_only=True)
-    class Meta:
-        fields = ['password', 'password2']
+class PasswordResetSerializer(serializers.Serializer):
+    otp = serializers.CharField(max_length=6, write_only=True)
+    password = serializers.CharField(max_length=255,write_only=True)
+    password2 = serializers.CharField(max_length=255,write_only=True)
+
+    def validate(self, data):
+        if data['password'] != data['password2']:
+            raise serializers.ValidationError("Passwords do not match.")
+        return data
 
 
 class LocationSerializer(serializers.ModelSerializer):

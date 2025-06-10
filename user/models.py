@@ -11,6 +11,7 @@ class BaseModel(models.Model):
 
 class User(BaseModel,AbstractBaseUser):
     USER_TYPES = (
+        # (0, SuperAdmin
             (1, 'Admin'),
             (2, 'Coach'),
             (3, 'Player'),

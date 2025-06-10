@@ -9,13 +9,14 @@ from .mail import MailUtils
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views import View
-# from django.template.loader import render_to_string
+from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.http import Http404
 from rest_framework.viewsets import ModelViewSet
 import random
+from rest_framework import viewsets
 
 # Create your views here.
 
@@ -53,8 +54,6 @@ class UserLoginView(APIView):
             return Response({'errors': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)    
     
 
-
-
 class VerifyEmailView(View):
     def get(self,request, uuid):
         user = get_object_or_404(User, uuid=uuid)
@@ -89,25 +88,46 @@ class PasswordResetEmailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-
-class LocationView(APIView):
-    permission_classes = [IsAuthenticated]
-    def post(self, request):
-        serializer = LocationSerializer(data=request.data)
+class PasswordResetConfirmView(APIView):
+    def post(self,request,uidb64, token):
+        serializer = PasswordResetSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user=request.user)
-            return Response({'message': 'Location added Successfully.'}, status=status.HTTP_200_OK)
+            try:
+                uid = urlsafe_base64_decode(uidb64).decode()
+                user = User.objects.get(id=uid)
+            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+                return Response({'error': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            if not PasswordResetTokenGenerator().check_token(user, token):
+                return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            input_otp = serializer.validated_data['otp']
+            if user.verified_otp != input_otp:
+                return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+
+            user.set_password(serializer.validated_data['password'])
+            user.save()
+
+            return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
+
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-    def get(self, request):
-        locations = Location.objects.filter(user=request.user)
-        serializer = LocationSerializer(locations, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class LocationViewSet(ModelViewSet):
+class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Location deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
