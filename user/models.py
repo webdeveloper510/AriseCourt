@@ -26,7 +26,7 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=100)
     email = models.EmailField(unique=True)
     verification_token = models.CharField(max_length=100, null=True, blank=True)
-    phone = models.CharField(max_length=15, unique=True)
+    phone = models.CharField(max_length=15, unique=True,null=True)
     country = CountryField(blank_label='(select country)')
     password = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
@@ -49,7 +49,7 @@ class PasswordResetOTP(models.Model):
     otp_verified = models.BooleanField(default=False)
     
     
-class Location(BaseModel,models.Model):
+class Location(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     description = models.TextField()
     logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
