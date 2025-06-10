@@ -7,7 +7,7 @@ from django.urls import include
 
 router = DefaultRouter()
 router.register(r'locations', LocationViewSet, basename='location')
-router.register(r'courts', CourtSet, basename='court')
+router.register(r'courts', CourtViewSet, basename='court')
 
 urlpatterns = [
     path('register/', UserCreateView.as_view(), name="register"),

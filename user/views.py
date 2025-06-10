@@ -1,9 +1,8 @@
 from django.shortcuts import render
 from rest_framework.views import APIView
-from rest_framework import status, permissions
+from rest_framework import status
 from rest_framework.response import Response
 from .serializers import *
-# from django.core.mail import send_mail
 from django.conf import settings
 from .mail import MailUtils
 from django.http import HttpResponse
@@ -13,7 +12,6 @@ from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
-from django.http import Http404
 from rest_framework.viewsets import ModelViewSet
 import random
 from rest_framework import viewsets
@@ -132,7 +130,7 @@ class LocationViewSet(viewsets.ModelViewSet):
         return Response({"message": "Location deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 
 
-class CourtSet(viewsets.ModelViewSet):
+class CourtViewSet(viewsets.ModelViewSet):
     queryset = Court.objects.all()
     serializer_class = CourtSerializer
 
