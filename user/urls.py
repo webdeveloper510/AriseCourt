@@ -15,4 +15,5 @@ urlpatterns = [
     path('send-reset-email/', PasswordResetEmailView.as_view(), name='send-reset-email'),
     path('verify-email/<uuid:uuid>/', VerifyEmailView.as_view(), name='verify_email'),
     path('', include(router.urls)),
+    path('reset-password/<uidb64>/<token>/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
 ]

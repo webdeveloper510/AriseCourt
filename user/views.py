@@ -27,6 +27,7 @@ def get_tokens_for_user(user):
             'access': str(refresh.access_token),
         }
 
+
 class UserCreateView(APIView):
     def post(self, request):
         user = UserSerializer(data=request.data)

@@ -1,17 +1,19 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.auth.models import AbstractBaseUser,  PermissionsMixin
 from django_countries.fields import CountryField
 from .managers import CustomUserManager
 import uuid
+
 
 # Create your models here.
 class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True,null=True)
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
-class User(BaseModel,AbstractBaseUser):
+
+class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     USER_TYPES = (
-        # (0, SuperAdmin
+            (0, 'SuperAdmin'),
             (1, 'Admin'),
             (2, 'Coach'),
             (3, 'Player'),
@@ -40,7 +42,6 @@ class User(BaseModel,AbstractBaseUser):
         return self.email
     
     
-
 class PasswordResetOTP(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     otp = models.CharField(max_length=6)
