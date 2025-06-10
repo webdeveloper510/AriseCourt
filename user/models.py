@@ -49,7 +49,7 @@ class PasswordResetOTP(models.Model):
     otp_verified = models.BooleanField(default=False)
     
     
-class Location(models.Model):
+class Location(BaseModel,models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     description = models.TextField()
     logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
@@ -63,3 +63,12 @@ class Location(models.Model):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
+
+
+class Court(BaseModel, models.Model):
+    location_id = models.ForeignKey(Location, on_delete=models.CASCADE)
+    court_number = models.CharField(max_length=30)
+    court_fee_hrs = models.CharField(max_length=20)
+    tax = models.CharField()
+    cc_fees = models.CharField()
+    availability = models.BooleanField(default=False)

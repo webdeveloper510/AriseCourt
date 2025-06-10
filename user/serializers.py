@@ -63,6 +63,11 @@ class LocationSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class CourtSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Court
+        fields = '__all__'
+
     
 
 
