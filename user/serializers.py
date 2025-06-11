@@ -40,11 +40,10 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
         fields = ['first_name','last_name','user_type','phone','country','is_verified','email','id']
     
 
-
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'phone', 'user_type', 'password']
+        fields = ['id','first_name', 'last_name', 'email', 'phone', 'user_type', 'password']
         extra_kwargs = {
             'password': {'write_only': True},
             'user_type': {'default': 1}

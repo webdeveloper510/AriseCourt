@@ -15,9 +15,20 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 import random
 from rest_framework import viewsets
+from rest_framework.pagination import PageNumberPagination
+
+
 
 
 # Create your views here.
+
+
+class LargeResultsSetPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 10000
+
+    
 
 def get_tokens_for_user(user):
         refresh = RefreshToken.for_user(user)
@@ -52,7 +63,7 @@ class UserLoginView(APIView):
             user_data = UserLoginFieldsSerializer(user).data
             return Response({
                 'token': token,
-                'msg': 'Login Success',
+                'msg': 'Login Successfully',
                 'status_code': status.HTTP_200_OK,
                 'data': user_data
             }, status=status.HTTP_200_OK)
@@ -63,7 +74,6 @@ class UserLoginView(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
    
     
-
 class VerifyEmailView(View):
     def get(self,request, uuid):
         user = get_object_or_404(User, uuid=uuid)
@@ -126,6 +136,7 @@ class PasswordResetConfirmView(APIView):
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
+    pagination_class = LargeResultsSetPagination
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -144,12 +155,13 @@ class LocationViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Location deleted successfully.","status_code": status.HTTP_204_NO_CONTENT},status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Location deleted successfully.","status_code": status.HTTP_200_OK},status=status.HTTP_200_OK)
 
 
 class CourtViewSet(viewsets.ModelViewSet):
     queryset = Court.objects.all()
     serializer_class = CourtSerializer
+    pagination_class = LargeResultsSetPagination
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -168,18 +180,23 @@ class CourtViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Court deleted successfully.","status_code": status.HTTP_204_NO_CONTENT},status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Court deleted successfully.","status_code": status.HTTP_200_OK},status=status.HTTP_200_OK)
     
 
 class AdminViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = AdminRegistrationSerializer
+    pagination_class = LargeResultsSetPagination
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        return Response({"message": "Admin user created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Admin created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
+    
+
+    def get_queryset(self):
+        return User.objects.filter(user_type=1)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
@@ -187,12 +204,10 @@ class AdminViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response({"message": "Admin user updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data}, status=status.HTTP_200_OK)
+        return Response({"message": "Admin updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data}, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Admin user deleted successfully.","status_code": status.HTTP_204_NO_CONTENT}, status=status.HTTP_204_NO_CONTENT)
+        return Response({"message": "Admin deleted successfully.","status_code": status.HTTP_200_OK}, status=status.HTTP_200_OK)
     
-
-
