@@ -16,6 +16,7 @@ from rest_framework.viewsets import ModelViewSet
 import random
 from rest_framework import viewsets
 
+
 # Create your views here.
 
 def get_tokens_for_user(user):
@@ -48,9 +49,19 @@ class UserLoginView(APIView):
         user = authenticate(request, username=email,password=password)
         if user is not None:
             token = get_tokens_for_user(user)
-            return Response({'token':token,'msg':'Login Success'}, status=status.HTTP_200_OK)
+            user_data = UserLoginFieldsSerializer(user).data
+            return Response({
+                'token': token,
+                'msg': 'Login Success',
+                'status_code': status.HTTP_200_OK,
+                'data': user_data
+            }, status=status.HTTP_200_OK)
         else:
-            return Response({'errors': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)    
+            return Response({
+                'errors': 'Invalid credentials',
+                'status_code': status.HTTP_400_BAD_REQUEST
+            }, status=status.HTTP_400_BAD_REQUEST)
+   
     
 
 class VerifyEmailView(View):
@@ -162,3 +173,26 @@ class CourtViewSet(viewsets.ModelViewSet):
 
 class AdminViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
+    serializer_class = AdminRegistrationSerializer
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({"message": "Admin user created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({"message": "Admin user updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data}, status=status.HTTP_200_OK)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        self.perform_destroy(instance)
+        return Response({"message": "Admin user deleted successfully.","status_code": status.HTTP_204_NO_CONTENT}, status=status.HTTP_204_NO_CONTENT)
+    
+
+

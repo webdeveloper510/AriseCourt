@@ -8,6 +8,7 @@ from datetime import timedelta
 from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .mail import MailUtils
+from django.contrib.auth.hashers import make_password
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -33,10 +34,22 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
+class UserLoginFieldsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name','last_name','user_type','phone','country','is_verified','email','id']
+    
+
+
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = '__all__'
+        fields = ['first_name', 'last_name', 'email', 'phone', 'user_type', 'password']
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'user_type': {'default': 1}
+        }
+
 
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
