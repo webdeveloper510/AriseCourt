@@ -72,3 +72,4 @@ class Court(BaseModel, models.Model):
     tax = models.CharField()
     cc_fees = models.CharField()
     availability = models.BooleanField(default=False)
+
