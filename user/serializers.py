@@ -37,7 +37,7 @@ class UserSerializer(serializers.ModelSerializer):
 class UserLoginFieldsSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name','last_name','user_type','phone','country','is_verified','email','id']
+        fields = ['id','first_name','last_name','user_type','phone','country','is_verified','email']
     
 
 class AdminRegistrationSerializer(serializers.ModelSerializer):
@@ -48,6 +48,13 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
             'password': {'write_only': True},
             'user_type': {'default': 1}
         }
+
+        def create(self, validated_data):
+            password = validated_data.pop('password')
+            user = User(**validated_data)
+            user.set_password(password)
+            user.save()
+            return user
 
 
 class UserLoginSerializer(serializers.Serializer):

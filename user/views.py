@@ -14,7 +14,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 import random
-from rest_framework import viewsets
+from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 
 
@@ -137,6 +137,8 @@ class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     pagination_class = LargeResultsSetPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['user__first_name', 'email', 'phone', 'city']
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -187,6 +189,8 @@ class AdminViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = AdminRegistrationSerializer
     pagination_class = LargeResultsSetPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['first_name','last_name', 'email', 'phone']
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
