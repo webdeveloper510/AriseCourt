@@ -142,13 +142,8 @@ class LocationViewSet(viewsets.ModelViewSet):
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'email', 'phone', 'city']
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response({"message": "Location created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data},status=status.HTTP_201_CREATED)
-
+    
+    
     def get_queryset(self):
         queryset = Location.objects.all()
         start_date = self.request.query_params.get('start_date')
@@ -158,8 +153,18 @@ class LocationViewSet(viewsets.ModelViewSet):
             start = parse_date(start_date)
             end = parse_date(end_date)
             if start and end:
-                queryset = queryset.filter(created_at__date__range=[start, end])
+                # Filter based on the user’s created_at date
+                queryset = queryset.filter(created_at__date__range=(start, end))
         return queryset
+    
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({"message": "Location created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data},status=status.HTTP_201_CREATED)
+
+    
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
@@ -206,12 +211,7 @@ class AdminViewSet(viewsets.ModelViewSet):
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['first_name','last_name', 'email', 'phone']
-
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response({"message": "Admin created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
+    
     
     def get_queryset(self):
         queryset = User.objects.filter(user_type=1)
@@ -224,6 +224,14 @@ class AdminViewSet(viewsets.ModelViewSet):
             if start and end:
                 queryset = queryset.filter(created_at__date__range=[start, end])
         return queryset
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response({"message": "Admin created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
+    
+    
    
 
     def update(self, request, *args, **kwargs):
