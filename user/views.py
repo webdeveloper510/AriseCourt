@@ -201,7 +201,17 @@ class AdminViewSet(viewsets.ModelViewSet):
         return Response({"message": "Admin created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
     
     def get_queryset(self):
-        return User.objects.filter(user_type=1)
+        queryset = User.objects.filter(user_type=1)
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                queryset = queryset.filter(created_at__date__range=[start, end])
+        return queryset
+   
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
