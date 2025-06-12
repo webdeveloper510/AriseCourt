@@ -43,18 +43,18 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id','first_name', 'last_name', 'email', 'phone', 'user_type', 'password','created_at','updated_at']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type', 'password', 'created_at', 'updated_at']
         extra_kwargs = {
             'password': {'write_only': True},
             'user_type': {'default': 1}
         }
 
-        def create(self, validated_data):
-            password = validated_data.pop('password')
-            user = User(**validated_data)
-            user.set_password(password)
-            user.save()
-            return user
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
 
 
 class UserLoginSerializer(serializers.Serializer):
@@ -93,6 +93,26 @@ class CourtSerializer(serializers.ModelSerializer):
         model = Court
         fields = '__all__'
 
+
+class UserDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email', 'phone', 'user_type']
+
+
+class CourtDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Court
+        fields = ['court_number', 'court_fee_hrs', 'tax','availability']
+
+
+class CourtBookingSerializer(serializers.ModelSerializer):
+    user = UserDataSerializer(read_only=True)
+    court = CourtDataSerializer(read_only=True)
     
+    class Meta:
+        model = CourtBooking
+        fields = '__all__' 
 
 
+ 

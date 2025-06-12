@@ -9,6 +9,7 @@ router = DefaultRouter()
 router.register(r'locations', LocationViewSet, basename='location')
 router.register(r'courts', CourtViewSet, basename='court')
 router.register(r'create_admin', AdminViewSet, basename='create-Admin')
+router.register(r'bookings', CourtBookingViewSet, basename='booking')
 
 urlpatterns = [
     path('register/', UserCreateView.as_view(), name="register"),

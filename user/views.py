@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from .serializers import *
 from django.conf import settings
 from .mail import MailUtils
+from datetime import datetime
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views import View
@@ -148,6 +149,18 @@ class LocationViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         return Response({"message": "Location created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data},status=status.HTTP_201_CREATED)
 
+    def get_queryset(self):
+        queryset = Location.objects.all()
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                queryset = queryset.filter(created_at__date__range=[start, end])
+        return queryset
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
@@ -226,3 +239,32 @@ class AdminViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return Response({"message": "Admin deleted successfully.","status_code": status.HTTP_200_OK}, status=status.HTTP_200_OK)
     
+
+class CourtBookingViewSet(viewsets.ModelViewSet):
+    queryset = CourtBooking.objects.all()
+    serializer_class = CourtBookingSerializer
+
+    def create(self, request, *args, **kwargs):
+        data = request.data.copy()
+        data['user'] = request.user.id  
+        start = data.get('start_time')
+        end = data.get('end_time')
+
+        try:
+            start_time = datetime.strptime(start, "%H:%M:%S")
+            end_time = datetime.strptime(end, "%H:%M:%S")
+
+            if end_time <= start_time:
+                return Response({"error": "End time must be after start time."}, status=400)
+
+            duration = str(end_time - start_time)
+            data['duration_time'] = duration
+
+        except:
+            return Response({"error":"Invalid time format. Use Hours:Minutes:Seconds"}, status=400)
+
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=201)

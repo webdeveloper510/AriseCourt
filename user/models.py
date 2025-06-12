@@ -73,3 +73,18 @@ class Court(BaseModel, models.Model):
     cc_fees = models.CharField()
     availability = models.BooleanField(default=False)
 
+
+class CourtBooking(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='court_bookings')
+    court = models.ForeignKey(Court, on_delete=models.CASCADE, related_name='bookings')
+    booking_date = models.DateField()
+    start_time = models.TimeField()
+    end_time = models.TimeField()
+    duration_time = models.CharField(blank=True, null=True)
+    status_choices = [
+        ('pending', 'Pending'),
+        ('confirmed', 'Confirmed'),
+        ('cancelled', 'Cancelled'),
+        ('completed', 'Completed'),
+    ]
+    status = models.CharField(max_length=20, choices=status_choices, default='pending')
