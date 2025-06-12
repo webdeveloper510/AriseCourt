@@ -115,4 +115,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         fields = '__all__' 
 
 
- 
+class ContactUsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ContactUs
+        fields = '__all__'

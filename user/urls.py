@@ -10,6 +10,7 @@ router.register(r'locations', LocationViewSet, basename='location')
 router.register(r'courts', CourtViewSet, basename='court')
 router.register(r'create_admin', AdminViewSet, basename='create-Admin')
 router.register(r'bookings', CourtBookingViewSet, basename='booking')
+router.register(r'contact-us', ContactUsViewSet, basename='contactus')
 
 urlpatterns = [
     path('register/', UserCreateView.as_view(), name="register"),

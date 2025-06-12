@@ -276,3 +276,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer.save()
 
         return Response(serializer.data, status=201)
+    
+
+class ContactUsViewSet(viewsets.ModelViewSet):
+    queryset = ContactUs.objects.all()
+    serializer_class = ContactUsSerializer
