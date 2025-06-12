@@ -78,9 +78,14 @@ class PasswordResetSerializer(serializers.Serializer):
 
 
 class LocationSerializer(serializers.ModelSerializer):
+    courts = serializers.SerializerMethodField()
     class Meta:
         model = Location
         fields = '__all__'
+
+    def get_courts(self, obj):
+        courts = Court.objects.filter(location_id=obj.id)
+        return CourtSerializer(courts, many=True).data    
 
 
 class CourtSerializer(serializers.ModelSerializer):
