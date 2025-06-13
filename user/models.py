@@ -27,7 +27,7 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     verification_token = models.CharField(max_length=100, null=True, blank=True)
     phone = models.CharField(max_length=15, unique=True,null=True)
-    country = CountryField(blank_label='(select country)')
+    country = CountryField(blank_label='(select country)',null=True)
     password = models.CharField(max_length=20)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)

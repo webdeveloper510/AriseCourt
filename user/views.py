@@ -150,27 +150,55 @@ class ResendOTPView(APIView):
         return Response({"message": "OTP and reset link have been resent to the email."}, status=status.HTTP_200_OK)
     
 
-class PasswordResetWithOTPView(APIView):
+class PasswordResetConfirmView(APIView):
     def post(self, request):
-        email = request.data.get('email')
-        otp = request.data.get('otp')
-        new_password = request.data.get('password')
+        email = request.data.get("email")
+        password = request.data.get("new_password")
+        confirm_password = request.data.get("confirm_password")
 
-        if not email or not otp or not new_password:
-            return Response({"error": "Email, OTP, and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+        if not all([email, password, confirm_password]):
+            return Response({
+                "code": 400,
+                "message": "Email, password, and confirm password are required.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        if password != confirm_password:
+            return Response({
+                "code": 400,
+                "message": "Passwords do not match.",
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(email=email)
-        except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            otp_obj = PasswordResetOTP.objects.get(user=user)
+        except (User.DoesNotExist, PasswordResetOTP.DoesNotExist):
+            return Response({
+                "code": 400,
+                "message": "Invalid request.",
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        if str(user.verified_otp) != str(otp):
-            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+        if otp_obj.expires_at < timezone.now():
+            return Response({
+                "code": 400,
+                "message": "OTP has expired.",
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-        user.set_password(new_password)
+        if not otp_obj.otp_verified:
+            return Response({
+                "code": 400,
+                "message": "Please verify your OTP before resetting your password.",
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(password)
         user.save()
+        otp_obj.delete()
 
-        return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
+        return Response({
+            "code": 200,
+            "message": "Password has been reset successfully.",
+            "data": {}
+        }, status=status.HTTP_200_OK)
+
 
 
 class LocationViewSet(viewsets.ModelViewSet):
@@ -280,6 +308,7 @@ class AdminViewSet(viewsets.ModelViewSet):
 class CourtBookingViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
+    permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
