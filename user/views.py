@@ -294,7 +294,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = LargeResultsSetPagination
     
-    def get(self, request, *args, **kwargs):
+    def list(self, request, *args, **kwargs):
         today = date.today()
         booking_type = request.query_params.get('type') 
 
@@ -306,12 +306,20 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         # Return based on filter
         if booking_type == 'past':
-            filtered_bookings = bookings.filter(created_at__date__lt=today).order_by('-created_at')
+            bookings = bookings.filter(created_at__date__lt=today).order_by('-created_at')
         else:
-            filtered_bookings = bookings.filter(created_at__date__gte=today).order_by('created_at')
+            bookings = bookings.filter(created_at__date__gte=today).order_by('created_at')
 
-        serializer = self.get_serializer(filtered_bookings, many=True)
+        page = self.paginate_queryset(bookings)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        # If pagination is not applied (e.g., pagination class is not set)
+        serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
+        # serializer = self.get_serializer(filtered_bookings, many=True)
+        # return Response({'bookings': serializer.data})
 
 
 
