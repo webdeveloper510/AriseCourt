@@ -292,6 +292,27 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = LargeResultsSetPagination
+    
+    
+    def list(self, request, *args, **kwargs):
+        today = date.today()
+        booking_type = request.query_params.get('type')  # Could be 'past' or None
+
+        # Filter bookings based on user
+        if request.user.is_superuser:
+            bookings = CourtBooking.objects.all()
+        else:
+            bookings = CourtBooking.objects.filter(user=request.user)
+
+        # Return based on filter
+        if booking_type == 'past':
+            filtered_bookings = bookings.filter(created_at__date__lt=today).order_by('-created_at')
+        else:
+            filtered_bookings = bookings.filter(created_at__date__gte=today).order_by('created_at')
+
+        serializer = self.get_serializer(filtered_bookings, many=True)
+        return Response({'bookings': serializer.data})
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -317,25 +338,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer.save(user=request.user)
 
         return Response(serializer.data, status=201)
-
-    def list(self, request, *args, **kwargs):
-        today = date.today()
-
-        if request.user.is_superuser:
-            bookings = CourtBooking.objects.all()
-        else:
-            bookings = CourtBooking.objects.filter(user=request.user)
-
-        past_bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
-        future_bookings = bookings.filter(booking_date__gte=today).order_by('booking_date')
-
-        past_serializer = self.get_serializer(past_bookings, many=True)
-        future_serializer = self.get_serializer(future_bookings, many=True)
-
-        return Response({
-            'past_bookings': past_serializer.data,
-            'future_bookings': future_serializer.data,
-        })
+    
+    
+    
 
 
 class ContactUsViewSet(viewsets.ModelViewSet):
