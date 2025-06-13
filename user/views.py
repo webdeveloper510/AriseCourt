@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from .serializers import *
 from django.conf import settings
 from .mail import MailUtils
+from datetime import date
 from datetime import datetime
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -30,7 +31,6 @@ class LargeResultsSetPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 10000
-
     
 
 def get_tokens_for_user(user):
@@ -111,29 +111,66 @@ class PasswordResetEmailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PasswordResetConfirmView(APIView):
-    def post(self,request,uidb64, token):
-        serializer = PasswordResetSerializer(data=request.data)
-        if serializer.is_valid():
-            try:
-                uid = urlsafe_base64_decode(uidb64).decode()
-                user = User.objects.get(id=uid)
-            except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-                return Response({'error': 'Invalid user.'}, status=status.HTTP_400_BAD_REQUEST)
+class VerifyOTPView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
 
-            if not PasswordResetTokenGenerator().check_token(user, token):
-                return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-            input_otp = serializer.validated_data['otp']
-            if user.verified_otp != input_otp:
-                return Response({'error': 'Invalid OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+        if user.verified_otp != str(otp):
+            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
 
-            user.set_password(serializer.validated_data['password'])
-            user.save()
+        return Response({"message": "OTP verified successfully."}, status=status.HTTP_200_OK)
+    
 
-            return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
+class ResendOTPView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not email:
+            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate a new OTP and save it
+        otp = str(random.randint(100000, 999999))
+        user.verified_otp = otp
+        user.save()
+
+        # Reuse your existing email sending function
+        MailUtils.send_password_reset_email(user)
+
+        return Response({"message": "OTP and reset link have been resent to the email."}, status=status.HTTP_200_OK)
+    
+
+class PasswordResetWithOTPView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        otp = request.data.get('otp')
+        new_password = request.data.get('password')
+
+        if not email or not otp or not new_password:
+            return Response({"error": "Email, OTP, and password are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if str(user.verified_otp) != str(otp):
+            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(new_password)
+        user.save()
+
+        return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
 
 
 class LocationViewSet(viewsets.ModelViewSet):
@@ -142,7 +179,6 @@ class LocationViewSet(viewsets.ModelViewSet):
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'email', 'phone', 'city']
-    
     
     def get_queryset(self):
         queryset = Location.objects.all()
@@ -156,15 +192,12 @@ class LocationViewSet(viewsets.ModelViewSet):
                 # Filter based on the user’s created_at date
                 queryset = queryset.filter(created_at__date__range=(start, end))
         return queryset
-    
-    
+        
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response({"message": "Location created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data},status=status.HTTP_201_CREATED)
-
-    
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
@@ -212,7 +245,6 @@ class AdminViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['first_name','last_name', 'email', 'phone']
     
-    
     def get_queryset(self):
         queryset = User.objects.filter(user_type=1)
         start_date = self.request.query_params.get('start_date')
@@ -231,9 +263,6 @@ class AdminViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         return Response({"message": "Admin created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
     
-    
-   
-
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
@@ -254,7 +283,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        data['user'] = request.user.id  
         start = data.get('start_time')
         end = data.get('end_time')
 
@@ -266,17 +294,37 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 return Response({"error": "End time must be after start time."}, status=400)
 
             duration = str(end_time - start_time)
-            data['duration_time'] = duration
+            data['duration_time'] = duration  
 
         except:
-            return Response({"error":"Invalid time format. Use Hours:Minutes:Seconds"}, status=400)
+            return Response({"error": "Invalid time format. Use HH:MM:SS"}, status=400)
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+
+        serializer.save(user=request.user)
 
         return Response(serializer.data, status=201)
-    
+
+    def list(self, request, *args, **kwargs):
+        today = date.today()
+
+        if request.user.is_superuser:
+            bookings = CourtBooking.objects.all()
+        else:
+            bookings = CourtBooking.objects.filter(user=request.user)
+
+        past_bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
+        future_bookings = bookings.filter(booking_date__gte=today).order_by('booking_date')
+
+        past_serializer = self.get_serializer(past_bookings, many=True)
+        future_serializer = self.get_serializer(future_bookings, many=True)
+
+        return Response({
+            'past_bookings': past_serializer.data,
+            'future_bookings': future_serializer.data,
+        })
+
 
 class ContactUsViewSet(viewsets.ModelViewSet):
     queryset = ContactUs.objects.all()

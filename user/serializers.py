@@ -68,11 +68,11 @@ class PasswordResetEmailSerializer(serializers.Serializer):
 
 class PasswordResetSerializer(serializers.Serializer):
     otp = serializers.CharField(max_length=6, write_only=True)
-    password = serializers.CharField(max_length=255,write_only=True)
-    password2 = serializers.CharField(max_length=255,write_only=True)
+    new_password = serializers.CharField(max_length=255,write_only=True)
+    confirm_password = serializers.CharField(max_length=255,write_only=True)
 
     def validate(self, data):
-        if data['password'] != data['password2']:
+        if data['new_password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match.")
         return data
 
@@ -109,6 +109,9 @@ class CourtDataSerializer(serializers.ModelSerializer):
 class CourtBookingSerializer(serializers.ModelSerializer):
     user = UserDataSerializer(read_only=True)
     court = CourtDataSerializer(read_only=True)
+    court_id = serializers.PrimaryKeyRelatedField(
+        queryset=Court.objects.all(), source='court', write_only=True
+    )
     
     class Meta:
         model = CourtBooking
