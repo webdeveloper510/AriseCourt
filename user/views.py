@@ -306,9 +306,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         # Return based on filter
         if booking_type == 'past':
-            bookings = bookings.filter(created_at__date__lt=today).order_by('-created_at')
+            bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
         else:
-            bookings = bookings.filter(created_at__date__gte=today).order_by('created_at')
+            bookings = bookings.filter(booking_date__gte=today).order_by('booking_date')
 
         page = self.paginate_queryset(bookings)
         if page is not None:
