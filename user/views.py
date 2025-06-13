@@ -294,7 +294,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = LargeResultsSetPagination
     
-    
     def get(self, request, *args, **kwargs):
         today = date.today()
         booking_type = request.query_params.get('type') 
@@ -313,6 +312,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(filtered_bookings, many=True)
         return Response({'bookings': serializer.data})
+
+
+
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -340,9 +342,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=201)
     
     
-    
-
-
 class ContactUsViewSet(viewsets.ModelViewSet):
     queryset = ContactUs.objects.all()
     serializer_class = ContactUsSerializer
