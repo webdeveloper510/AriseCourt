@@ -13,13 +13,13 @@ router.register(r'court-bookings', CourtBookingViewSet, basename='booking')
 router.register(r'contact-us', ContactUsViewSet, basename='contactus')
 
 urlpatterns = [
+    path('', include(router.urls)),
     path('register/', UserCreateView.as_view(), name="register"),
     path('login/', UserLoginView.as_view(), name='login'),
     path('send-reset-email/', PasswordResetEmailView.as_view(), name='send-reset-email'),
     path('verify-email/<uuid:uuid>/', VerifyEmailView.as_view(), name='verify_email'),
     path('reset-password/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
-    path('', include(router.urls)),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
-     path('reporting-data/', StatsAPIView.as_view(), name='stats'),
+    path('reporting-data/', StatsAPIView.as_view(), name='stats'),
 ]
