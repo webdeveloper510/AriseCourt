@@ -67,9 +67,13 @@ class PasswordResetEmailSerializer(serializers.Serializer):
 
 
 class PasswordResetSerializer(serializers.Serializer):
-    otp = serializers.CharField(max_length=6, write_only=True)
+    email = serializers.EmailField(write_only=True)
     new_password = serializers.CharField(max_length=255,write_only=True)
     confirm_password = serializers.CharField(max_length=255,write_only=True)
+
+    class Meta:
+        model = PasswordResetOTP
+        fields = '__all__'
 
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:

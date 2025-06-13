@@ -152,52 +152,33 @@ class ResendOTPView(APIView):
 
 class PasswordResetConfirmView(APIView):
     def post(self, request):
-        email = request.data.get("email")
-        password = request.data.get("new_password")
-        confirm_password = request.data.get("confirm_password")
-
-        if not all([email, password, confirm_password]):
+        serializer = PasswordResetSerializer(data=request.data)
+        if not serializer.is_valid():
             return Response({
                 "code": 400,
-                "message": "Email, password, and confirm password are required.",
+                "message": "Validation failed.",
+                "errors": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if password != confirm_password:
-            return Response({
-                "code": 400,
-                "message": "Passwords do not match.",
-            }, status=status.HTTP_400_BAD_REQUEST)
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["new_password"]
 
         try:
             user = User.objects.get(email=email)
-            otp_obj = PasswordResetOTP.objects.get(user=user)
-        except (User.DoesNotExist, PasswordResetOTP.DoesNotExist):
+        except User.DoesNotExist:
             return Response({
                 "code": 400,
-                "message": "Invalid request.",
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if otp_obj.expires_at < timezone.now():
-            return Response({
-                "code": 400,
-                "message": "OTP has expired.",
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        if not otp_obj.otp_verified:
-            return Response({
-                "code": 400,
-                "message": "Please verify your OTP before resetting your password.",
+                "message": "User not found.",
             }, status=status.HTTP_400_BAD_REQUEST)
 
         user.set_password(password)
         user.save()
-        otp_obj.delete()
 
         return Response({
             "code": 200,
             "message": "Password has been reset successfully.",
-            "data": {}
         }, status=status.HTTP_200_OK)
+
 
 
 
