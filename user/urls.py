@@ -21,4 +21,5 @@ urlpatterns = [
     path('', include(router.urls)),
     path('verify-otp/', VerifyOTPView.as_view(), name='verify-otp'),
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
+     path('stats/', StatsAPIView.as_view(), name='stats'),
 ]

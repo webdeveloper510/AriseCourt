@@ -62,11 +62,16 @@ class UserLoginView(APIView):
         password = serializer.validated_data['password']
         user = authenticate(request, username=email,password=password)
         if user is not None:
+            if not user.is_verified:
+                return Response({
+                    'errors': 'Email not verified. Please verify your email before logging in.',
+                    'status_code': status.HTTP_403_FORBIDDEN
+                }, status=status.HTTP_403_FORBIDDEN)
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
             return Response({
                 'token': token,
-                'msg': 'Login Successfully',
+                'message': 'Login Successfully',
                 'status_code': status.HTTP_200_OK,
                 'data': user_data
             }, status=status.HTTP_200_OK)
@@ -139,7 +144,7 @@ class ResendOTPView(APIView):
         except User.DoesNotExist:
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
-        # Generate a new OTP and save it
+        
         otp = str(random.randint(100000, 999999))
         user.verified_otp = otp
         user.save()
@@ -180,8 +185,6 @@ class PasswordResetConfirmView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-
-
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
@@ -198,7 +201,6 @@ class LocationViewSet(viewsets.ModelViewSet):
             start = parse_date(start_date)
             end = parse_date(end_date)
             if start and end:
-                # Filter based on the user’s created_at date
                 queryset = queryset.filter(created_at__date__range=(start, end))
         return queryset
         
@@ -339,3 +341,19 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 class ContactUsViewSet(viewsets.ModelViewSet):
     queryset = ContactUs.objects.all()
     serializer_class = ContactUsSerializer
+
+
+class StatsAPIView(APIView):
+
+    def get(self, request):
+        total_users = User.objects.count()
+        total_bookings = CourtBooking.objects.count()
+        total_courts = Court.objects.count()
+        total_profit = 0
+
+        return Response({
+            'total_users': total_users,
+            'total_bookings': total_bookings,
+            'total_courts': total_courts,
+            'total_profit': total_profit
+        })
