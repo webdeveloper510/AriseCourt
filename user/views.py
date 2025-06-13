@@ -295,9 +295,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     pagination_class = LargeResultsSetPagination
     
     
-    def list(self, request, *args, **kwargs):
+    def get(self, request, *args, **kwargs):
         today = date.today()
-        booking_type = request.query_params.get('type')  # Could be 'past' or None
+        booking_type = request.query_params.get('type') 
 
         # Filter bookings based on user
         if request.user.is_superuser:
