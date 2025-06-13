@@ -293,6 +293,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     serializer_class = CourtBookingSerializer
     permission_classes = [IsAuthenticated]
     pagination_class = LargeResultsSetPagination
+    filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name','user__last_name', 'user__email', 'user__phone']
     
     def list(self, request, *args, **kwargs):
