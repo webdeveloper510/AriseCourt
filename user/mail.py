@@ -46,3 +46,20 @@ class MailUtils:
             html_message=html_message,
             fail_silently=False,
         )
+
+
+    def booking_confirmation_mail(user, booking):
+        subject = "Booking Confirmation Email - Arise Court"
+        html_message = render_to_string("email_verification_template/booking_confirmation.html", {
+            'user': user,
+            'booking': booking
+        })
+
+        send_mail(
+            subject=subject,
+            message=html_message,  
+            from_email=settings.EMAIL_HOST_USER,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )

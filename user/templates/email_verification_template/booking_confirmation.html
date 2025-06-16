@@ -1,0 +1,226 @@
+<!doctype html>
+<html>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Appointment Confirmation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Edu+SA+Hand:wght@400..700&family=Roboto:ital,wght@0,100..900;1,100..900&display=swap"
+    rel="stylesheet" />
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: "DM Sans", sans-serif !important;
+      background-color: #f7f8fa;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 30px auto;
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .header {
+      font-size: 26px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      color: #192226;
+    }
+
+    .sub-header {
+      font-size: 18px;
+      margin-bottom: 20px;
+      color: #192226;
+    }
+
+    .info-grid {
+      display: flex;
+      justify-content: center !important; 
+    }
+
+    .info-box {
+      flex: 1;
+      display: flex;
+      width: 33%;
+      flex-direction: column;
+      justify-content: center;
+      background: #f1f4ff;
+      padding: 20px;
+      margin: 20px 8px;
+      border-radius: 10px;
+    }
+
+    .info-box h3 {
+      color: #0860FB;
+      font-size: 24px;
+      margin: 5px 0;
+    }
+
+    .info-box span {
+      font-size: 14px;
+      color: #172b4d;
+      font-weight: 600;
+    }
+
+    .button {
+      display: block;
+      width: 60%;
+      margin: 20px auto;
+      background-color: #0860FB;
+      color: white;
+      text-align: center;
+      padding: 12px 0;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .footer-text {
+      font-size: 13px;
+      text-align: center;
+      color: #555;
+      margin-top: 30px;
+    }
+
+    .contact-info {
+      font-size: 14px;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    .contact-info a {
+      color: #0860FB;
+      text-decoration: none;
+    }
+
+    .note {
+      background: #33333329;
+      padding: 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      margin-top: 30px;
+      text-align: center;
+      color: #333 !important;
+    }
+
+    .account-info {
+      font-size: 15px;
+      text-align: center;
+      margin-top: 20px;
+      font-weight: 500;
+      color: #333333;
+      width: 65%;
+      margin: auto;
+    }
+
+    .account-info p strong {
+      font-size: 18px;
+    }
+
+    .teamweb {
+      text-align: left;
+    }
+
+    .teamweb a {
+      color: #0860FB;
+      font-weight: 300;
+      margin-left: 3px;
+      text-decoration: none;
+    }
+
+    .confirm_app a {
+      color: white !important;
+    }
+
+    .confirm_app p,
+    .contact-info p,
+    .account-info p {
+      color: #333 !important;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div style="text-align: center;">
+        <img
+          src="https://arise-court-web-tau.vercel.app/arise-court-logo.png"
+        />
+        <img style="width: 85%;"
+          src="https://arise-court-web-tau.vercel.app/confirmation-image.png"
+        />
+      </div>
+
+    <div class="header">Dear {{ user.first_name }} {{ user.last_name }},</div>
+
+    <div class="sub-header">
+      Below is your appointment information for {{ booking.booking_date }} at {{ booking.start_time }}
+    </div>
+
+    <div class="info-grid">
+      <div class="info-box">
+        <div>
+          <span>Court Number</span>
+          <h3>{{ booking.court.court_number }}</h3>
+        </div>
+      </div>
+      <div class="info-box">
+        <div>
+          <span>Time</span>
+          <h3>{{ booking.start_time }}</h3>
+        </div>
+      </div>
+      <div class="info-box">
+        <div>
+          <span>Duration</span>
+          <h3>{{ booking.duration_time }}</h3>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align: center" class="confirm_app">
+      <p>Please confirm your appointment by clicking the below.</p>
+      <a href="#" class="button">CONFIRM APPOINTMENT</a>
+    </div>
+
+    <div class="contact-info">
+      <p>
+        Please arrive five minutes before your appointment start time. If you
+        need to reschedule or cancel your appointment, please call us at
+        <a href="tel:3104286564">(310) 428-6564</a>. Thank you!
+      </p>
+    </div>
+
+    <div class="account-info">
+      <p>
+        If you are having any issues with your account, please don’t hesitate
+        to contact us by replying to this mail.
+      </p>
+      <p><strong>Thanks! The Arise Sports Complex</strong></p>
+      <p class="teamweb">
+        TeamWeb:
+        <a href="http://www.arisesportscomplex.com">www.arisesportscomplex.com</a><br />
+        Phone: <a href="tel:3104286564">(310) 428-6564</a><br />
+        Address: <a href="#">542 Koomey Road Brookshire TX 77423</a>
+      </p>
+    </div>
+
+    <div class="note">
+      If you did not make this request, please contact us by replying to this
+      email.
+    </div>
+  </div>
+</body>
+
+</html>
+apps-fileview.texmex_20250605.00_p3
+email-template.html
+Displaying email-template.html.

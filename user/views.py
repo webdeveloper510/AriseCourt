@@ -6,6 +6,7 @@ from .serializers import *
 from django.conf import settings
 from .mail import MailUtils
 from datetime import date
+from django.db.models import Q
 from datetime import datetime
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
@@ -294,17 +295,27 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name','user__last_name', 'user__email', 'user__phone']
+    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__phone']
+
     
     def list(self, request, *args, **kwargs):
         today = date.today()
         booking_type = request.query_params.get('type') 
+        search = request.query_params.get('search')
 
         # Filter bookings based on user
         if request.user.is_superuser:
             bookings = CourtBooking.objects.all()
         else:
             bookings = CourtBooking.objects.filter(user=request.user)
+             # Apply search manually
+        if search:
+            bookings = bookings.filter(
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__phone__icontains=search)
+            )
 
         # Return based on filter
         if booking_type == 'past':
@@ -344,8 +355,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
-        serializer.save(user=request.user)
-
+        booking = serializer.save(user=request.user)
+        MailUtils.booking_confirmation_mail(request.user,booking)
         return Response(serializer.data, status=201)
     
     
