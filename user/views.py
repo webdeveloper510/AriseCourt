@@ -68,8 +68,6 @@ class UserData(APIView):
 
         # Exclude SuperAdmin (0) and Admin (1)
         queryset = User.objects.exclude(user_type__in=[0, 1])
-
-        # Apply optional filters
         queryset = queryset.filter(date_filter & search_filter)
 
         if user_type:
@@ -78,9 +76,12 @@ class UserData(APIView):
             except ValueError:
                 return Response({"error": "Invalid user_type"}, status=400)
 
-        serialized_data = UserSerializer(queryset, many=True).data
+        # ✅ Apply pagination manually
+        paginator = LargeResultsSetPagination()
+        paginated_qs = paginator.paginate_queryset(queryset, request)
+        serialized_data = UserSerializer(paginated_qs, many=True)
 
-        return Response({"users": serialized_data})
+        return paginator.get_paginated_response(serialized_data.data)
 
 
 class UserCreateView(APIView):

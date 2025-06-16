@@ -48,7 +48,7 @@ class PasswordResetOTP(models.Model):
     expires_at = models.DateTimeField() 
     otp_verified = models.BooleanField(default=False)
     
-    
+
 class Location(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     description = models.TextField()
@@ -100,3 +100,8 @@ class ContactUs(models.Model):
     email = models.EmailField()
     phone = models.CharField()
     message = models.TextField()
+
+
+class AdminPermission(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    access_flag = models.CharField(max_length=10)
