@@ -302,19 +302,28 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         today = date.today()
         booking_type = request.query_params.get('type') 
         search = request.query_params.get('search')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
 
         # Filter bookings based on user
         if request.user.is_superuser:
             bookings = CourtBooking.objects.all()
         else:
             bookings = CourtBooking.objects.filter(user=request.user)
-             # Apply search manually
+
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                bookings = bookings.filter(booking_date__range=(start, end))
+
         if search:
             bookings = bookings.filter(
                 Q(user__first_name__icontains=search) |
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search) |
-                Q(user__phone__icontains=search)
+                Q(user__phone__icontains=search) |
+                Q(booking_date__icontains=search) 
             )
 
         # Return based on filter
