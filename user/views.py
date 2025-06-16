@@ -42,6 +42,47 @@ def get_tokens_for_user(user):
         }
 
 
+class UserData(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        search_query = request.query_params.get('search', '')
+        user_type = request.query_params.get('user_type')  
+
+        # Initialize filters
+        date_filter = Q()
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                date_filter &= Q(created_at__date__range=(start, end))
+
+        search_filter = Q()
+        if search_query:
+            search_filter |= Q(first_name__icontains=search_query)
+            search_filter |= Q(last_name__icontains=search_query)
+            search_filter |= Q(phone__icontains=search_query)
+            search_filter |= Q(email__icontains=search_query)
+
+        # Exclude SuperAdmin (0) and Admin (1)
+        queryset = User.objects.exclude(user_type__in=[0, 1])
+
+        # Apply optional filters
+        queryset = queryset.filter(date_filter & search_filter)
+
+        if user_type:
+            try:
+                queryset = queryset.filter(user_type=int(user_type))
+            except ValueError:
+                return Response({"error": "Invalid user_type"}, status=400)
+
+        serialized_data = UserSerializer(queryset, many=True).data
+
+        return Response({"users": serialized_data})
+
+
 class UserCreateView(APIView):
     def post(self, request):
         user = UserSerializer(data=request.data)
@@ -388,3 +429,5 @@ class StatsAPIView(APIView):
             'total_courts': total_courts,
             'total_profit': total_profit
         })
+
+
