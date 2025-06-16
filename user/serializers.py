@@ -128,12 +128,19 @@ class ContactUsSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class UserSerializer(serializers.ModelSerializer):
+class CourtBookingDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourtBooking
+        fields = ['booking_date', 'start_time', 'duration_time']
+
+
+class UserDataSerializer(serializers.ModelSerializer):
+    court_bookings = CourtBookingDataSerializer(many=True, read_only=True)
     country = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = '__all__'
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type', 'court_bookings', 'country']
 
     def get_country(self, obj):
         if obj.country:

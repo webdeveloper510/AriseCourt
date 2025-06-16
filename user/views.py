@@ -79,7 +79,7 @@ class UserData(APIView):
         # ✅ Apply pagination manually
         paginator = LargeResultsSetPagination()
         paginated_qs = paginator.paginate_queryset(queryset, request)
-        serialized_data = UserSerializer(paginated_qs, many=True)
+        serialized_data = UserDataSerializer(paginated_qs, many=True)
 
         return paginator.get_paginated_response(serialized_data.data)
 
@@ -196,7 +196,7 @@ class ResendOTPView(APIView):
         MailUtils.send_password_reset_email(user)
 
         return Response({"message": "OTP and reset link have been resent to the email."}, status=status.HTTP_200_OK)
-    
+
 
 class PasswordResetConfirmView(APIView):
     def post(self, request):
