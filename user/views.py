@@ -22,9 +22,6 @@ from rest_framework.pagination import PageNumberPagination
 from django.utils.dateparse import parse_date
 
 
-
-
-
 # Create your views here.
 
 
@@ -170,9 +167,9 @@ class VerifyOTPView(APIView):
             return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
 
         if user.verified_otp != str(otp):
-            return Response({"error": "Invalid OTP."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Invalid OTP.", 'status_code': status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
 
-        return Response({"message": "OTP verified successfully."}, status=status.HTTP_200_OK)
+        return Response({"message": "OTP verified successfully.",'status_code': status.HTTP_200_OK}, status=status.HTTP_200_OK)
     
 
 class ResendOTPView(APIView):
@@ -180,12 +177,12 @@ class ResendOTPView(APIView):
         email = request.data.get('email')
 
         if not email:
-            return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Email is required.",'status_code': status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "User not found.", 'status_code': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
 
         
         otp = str(random.randint(100000, 999999))
@@ -195,7 +192,7 @@ class ResendOTPView(APIView):
         # Reuse your existing email sending function
         MailUtils.send_password_reset_email(user)
 
-        return Response({"message": "OTP and reset link have been resent to the email."}, status=status.HTTP_200_OK)
+        return Response({"message": "OTP and reset link have been resent to the email.", 'status_code': status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmView(APIView):
@@ -434,13 +431,13 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             end_time = datetime.strptime(end, "%H:%M:%S")
 
             if end_time <= start_time:
-                return Response({"error": "End time must be after start time."}, status=400)
+                return Response({"error": "End time must be after start time.", 'status_code': status.HTTP_400_BAD_REQUEST}, status=400)
 
             duration = str(end_time - start_time)
             data['duration_time'] = duration  
 
         except:
-            return Response({"error": "Invalid time format. Use HH:MM:SS"}, status=400)
+            return Response({"error": "Invalid time format. Use HH:MM:SS", 'status_code': status.HTTP_400_BAD_REQUEST}, status=400)
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
