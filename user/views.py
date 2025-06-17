@@ -323,6 +323,9 @@ class AdminViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         user = serializer.instance
 
+        user.is_verified = True
+        user.save()
+
         AdminPermission.objects.create(user=user, access_flag=str(access_flag))
 
         response_data = serializer.data
