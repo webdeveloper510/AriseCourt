@@ -88,7 +88,7 @@ class UserCreateView(APIView):
             data=user.save()
             MailUtils.send_verification_email(data)
             return Response({
-                "message": "Registration successful. A verification email has been sent.",
+                "message": "Please check your email to verify your account before logging in.",
                 "status": status.HTTP_201_CREATED
             })
         return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
