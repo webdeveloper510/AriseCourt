@@ -33,11 +33,13 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
-
+ 
 class UserLoginFieldsSerializer(serializers.ModelSerializer):
+    access_flag = serializers.CharField(source='adminpermission.access_flag', read_only=True)
+
     class Meta:
         model = User
-        fields = ['id','first_name','last_name','user_type','phone','is_verified','email']
+        fields = ['id','first_name','last_name','user_type','phone','is_verified','email','access_flag']
     
 
 class AdminRegistrationSerializer(serializers.ModelSerializer):

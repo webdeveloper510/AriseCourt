@@ -91,21 +91,10 @@ class UserCreateView(APIView):
             data=user.save()
             MailUtils.send_verification_email(data)
             return Response({
-                "status": 201,
                 "message": "Registration successful. A verification email has been sent.",
                 "status": status.HTTP_201_CREATED
             })
-            
-        formatted_errors = {
-            field: errors[0] if isinstance(errors, list) else errors
-            for field, errors in user.errors.items()
-        }    
-        
-        return Response({
-            "status": 400,
-            "message": formatted_errors
-        }, status=status.HTTP_400_BAD_REQUEST)    
-        # return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
 class UserLoginView(APIView):
@@ -325,16 +314,55 @@ class AdminViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        access_flag = request.data.get("access_flag", None)
+
+        if access_flag is None:
+            return Response({
+                "message": "Missing Permission.",
+                "status_code": status.HTTP_400_BAD_REQUEST,
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         self.perform_create(serializer)
-        return Response({"message": "Admin created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data}, status=status.HTTP_201_CREATED)
+        user = serializer.instance
+
+        AdminPermission.objects.create(user=user, access_flag=str(access_flag))
+
+        response_data = serializer.data
+
+        return Response({
+            "message": "Admin created successfully.",
+            "status_code": status.HTTP_201_CREATED,
+            "data": response_data
+        }, status=status.HTTP_201_CREATED)
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response({"message": "Admin updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data}, status=status.HTTP_200_OK)
+
+        password = request.data.get("password", None)
+        if password:
+            instance.set_password(password)
+            instance.save()
+
+        access_flag = request.data.get("access_flag", None)
+        if access_flag is not None:
+            try:
+                admin_permission = AdminPermission.objects.get(user=instance)
+                admin_permission.access_flag = str(access_flag)
+                admin_permission.save()
+            except AdminPermission.DoesNotExist:
+                AdminPermission.objects.create(user=instance, access_flag=str(access_flag))
+
+        return Response({
+            "message": "Admin updated successfully.",
+            "status_code": status.HTTP_200_OK,
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
