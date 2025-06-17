@@ -91,10 +91,21 @@ class UserCreateView(APIView):
             data=user.save()
             MailUtils.send_verification_email(data)
             return Response({
+                "status": 201,
                 "message": "Registration successful. A verification email has been sent.",
                 "status": status.HTTP_201_CREATED
             })
-        return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
+            
+        formatted_errors = {
+            field: errors[0] if isinstance(errors, list) else errors
+            for field, errors in user.errors.items()
+        }    
+        
+        return Response({
+            "status": 400,
+            "message": formatted_errors
+        }, status=status.HTTP_400_BAD_REQUEST)    
+        # return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
 class UserLoginView(APIView):
