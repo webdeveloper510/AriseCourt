@@ -43,9 +43,10 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
     
 
 class AdminRegistrationSerializer(serializers.ModelSerializer):
+    access_flag = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type', 'password', 'created_at', 'updated_at']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type', 'password', 'created_at', 'updated_at','access_flag']
         extra_kwargs = {
             'password': {'write_only': True},
             'user_type': {'default': 1}
@@ -57,6 +58,14 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+    
+    def get_access_flag(self, obj):
+        try:
+            permission = AdminPermission.objects.get(user=obj)
+            return permission.access_flag
+        except AdminPermission.DoesNotExist:
+            return None
+    
 
 
 class UserLoginSerializer(serializers.Serializer):

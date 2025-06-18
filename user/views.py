@@ -71,7 +71,7 @@ class UserData(APIView):
             try:
                 queryset = queryset.filter(user_type=int(user_type))
             except ValueError:
-                return Response({"error": "Invalid user_type"}, status=400)
+                return Response({"message": "Invalid user_type"}, status=400)
 
         # ✅ Apply pagination manually
         paginator = LargeResultsSetPagination()
@@ -104,7 +104,7 @@ class UserLoginView(APIView):
         if user is not None:
             if not user.is_verified:
                 return Response({
-                    'errors': 'Email not verified. Please verify your email before logging in.',
+                    'message': 'Email not verified. Please verify your email before logging in.',
                     'status_code': status.HTTP_403_FORBIDDEN
                 }, status=status.HTTP_403_FORBIDDEN)
             token = get_tokens_for_user(user)
@@ -117,9 +117,9 @@ class UserLoginView(APIView):
             }, status=status.HTTP_200_OK)
         else:
             return Response({
-                'errors': 'Invalid credentials',
-                'status_code': status.HTTP_400_BAD_REQUEST
-            }, status=status.HTTP_400_BAD_REQUEST)
+                'message': 'Incorrect Username and Password',
+                'code': "400"
+            }, status=status.HTTP_200_OK)
    
     
 class VerifyEmailView(View):
@@ -329,6 +329,7 @@ class AdminViewSet(viewsets.ModelViewSet):
         AdminPermission.objects.create(user=user, access_flag=str(access_flag))
 
         response_data = serializer.data
+        response_data['access_flag'] = str(access_flag)
 
         return Response({
             "message": "Admin created successfully.",
