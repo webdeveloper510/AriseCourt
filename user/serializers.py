@@ -67,7 +67,6 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
             return None
     
 
-
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(required=True)
@@ -157,3 +156,17 @@ class UserDataSerializer(serializers.ModelSerializer):
         if obj.country:
             return obj.country.name  
         return None
+    
+
+class UpdateProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'image', 'phone']
+
+    def update(self, instance, validated_data):
+        for field in ['first_name', 'last_name', 'image', 'phone']:
+            if field in validated_data:
+                setattr(instance, field, validated_data[field])
+
+        instance.save()
+        return instance

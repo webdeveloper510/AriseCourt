@@ -34,7 +34,7 @@ class LargeResultsSetPagination(PageNumberPagination):
 def get_tokens_for_user(user):
         refresh = RefreshToken.for_user(user)
         return {
-            'refresh': str(refresh),
+            # 'refresh': str(refresh),
             'access': str(refresh.access_token),
         }
 
@@ -111,8 +111,8 @@ class UserLoginView(APIView):
             user_data = UserLoginFieldsSerializer(user).data
             return Response({
                 'token': token,
+                'code': '200',
                 'message': 'Login Successfully',
-                'status_code': status.HTTP_200_OK,
                 'data': user_data
             }, status=status.HTTP_200_OK)
         else:
@@ -455,6 +455,23 @@ class ContactUsViewSet(viewsets.ModelViewSet):
     queryset = ContactUs.objects.all()
     serializer_class = ContactUsSerializer
 
+    
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            self.perform_create(serializer)
+            return Response({
+                "message": "Thank you for contacting us!",
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response({
+            "code": "400",
+            "message": "There was a problem with your submission.",
+            "errors": serializer.errors
+        }, status=status.HTTP_200_OK)
+
 
 class StatsAPIView(APIView):
 
@@ -471,4 +488,19 @@ class StatsAPIView(APIView):
             'total_profit': total_profit
         })
 
+
+class UpdateProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        user = request.user
+        serializer = UpdateProfileSerializer(user, data=request.data, partial=True)  
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "code": "200",
+            "message": "Profile updated successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
