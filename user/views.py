@@ -109,7 +109,7 @@ class UserLoginView(APIView):
                 }, status=status.HTTP_403_FORBIDDEN)
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
-            user_data['token'] = token
+            user_data['access_token'] = token['access']
             return Response({
                 'code': '200',
                 'message': 'Login Successfully',
