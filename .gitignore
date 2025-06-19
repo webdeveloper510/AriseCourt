@@ -1,2 +1,3 @@
-myenv/
+# Virtual environment
 venv/
+.env/

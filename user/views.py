@@ -143,7 +143,7 @@ class PasswordResetEmailView(APIView):
             try:
                 user = User.objects.get(email=email)
             except User.DoesNotExist:
-                return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+                return Response({'message': 'User with this email does not exist.','code': '400' }, status=status.HTTP_200_OK)
 
             otp = str(random.randint(100000, 999999))
             user.verified_otp = otp
@@ -151,7 +151,7 @@ class PasswordResetEmailView(APIView):
 
             MailUtils.send_password_reset_email(user)
 
-            return Response({'message': 'Password reset OTP sent to email.'}, status=status.HTTP_200_OK)
+            return Response({'message': 'Password reset OTP sent to email.', 'code': '200'}, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -164,12 +164,12 @@ class VerifyOTPView(APIView):
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({"error": "User not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "User not found.", 'code':'400'}, status=status.HTTP_200_OK)
 
         if user.verified_otp != str(otp):
-            return Response({"message": "Invalid OTP.", 'status_code': status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"message": "Invalid OTP.", 'code': '400'}, status=status.HTTP_200_OK)
 
-        return Response({"message": "OTP verified successfully.",'status_code': status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        return Response({"message": "OTP verified successfully.",'code': '200'}, status=status.HTTP_200_OK)
     
 
 class ResendOTPView(APIView):
@@ -177,12 +177,12 @@ class ResendOTPView(APIView):
         email = request.data.get('email')
 
         if not email:
-            return Response({"error": "Email is required.",'status_code': status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "Email is required.",'code': '400'}, status=status.HTTP_200_OK)
 
         try:
             user = User.objects.get(email=email)
         except User.DoesNotExist:
-            return Response({"error": "User not found.", 'status_code': status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "User not found.", 'code': '400'}, status=status.HTTP_200_OK)
 
         
         otp = str(random.randint(100000, 999999))
@@ -192,7 +192,7 @@ class ResendOTPView(APIView):
         # Reuse your existing email sending function
         MailUtils.send_password_reset_email(user)
 
-        return Response({"message": "OTP and reset link have been resent to the email.", 'status_code': status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        return Response({"message": "OTP and reset link have been resent to the email.", 'code': status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
 
 class PasswordResetConfirmView(APIView):
@@ -203,7 +203,7 @@ class PasswordResetConfirmView(APIView):
                 "code": 400,
                 "message": "Validation failed.",
                 "errors": serializer.errors
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_200_OK)
 
         email = serializer.validated_data["email"]
         password = serializer.validated_data["new_password"]
@@ -214,7 +214,7 @@ class PasswordResetConfirmView(APIView):
             return Response({
                 "code": 400,
                 "message": "User not found.",
-            }, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_200_OK)
 
         user.set_password(password)
         user.save()
@@ -435,13 +435,13 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             end_time = datetime.strptime(end, "%H:%M:%S")
 
             if end_time <= start_time:
-                return Response({"error": "End time must be after start time.", 'status_code': status.HTTP_400_BAD_REQUEST}, status=400)
+                return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
 
             duration = str(end_time - start_time)
             data['duration_time'] = duration  
 
         except:
-            return Response({"error": "Invalid time format. Use HH:MM:SS", 'status_code': status.HTTP_400_BAD_REQUEST}, status=400)
+            return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
@@ -462,6 +462,7 @@ class ContactUsViewSet(viewsets.ModelViewSet):
         if serializer.is_valid():
             self.perform_create(serializer)
             return Response({
+                'code':'201',
                 "message": "Thank you for contacting us!",
                 "data": serializer.data
             }, status=status.HTTP_201_CREATED)
