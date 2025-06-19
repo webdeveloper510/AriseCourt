@@ -3,6 +3,7 @@ from .views import *
 from rest_framework.routers import DefaultRouter
 from .views import LocationViewSet
 from django.urls import include
+from django.conf.urls.static import static
 
 
 router = DefaultRouter()
@@ -24,5 +25,6 @@ urlpatterns = [
     path('reporting-data/', StatsAPIView.as_view(), name='stats'),
     path('user-data/', UserData.as_view(), name='user-data'),
     path('profile/', ProfileView.as_view(), name='profile'),
-]
+
+]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
