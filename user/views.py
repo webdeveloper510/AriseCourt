@@ -20,6 +20,10 @@ import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from django.utils.dateparse import parse_date
+import stripe
+from .utils import calculate_total_fee, calculate_duration
+import json
+from django.views.decorators.csrf import csrf_exempt
 
 
 # Create your views here.
@@ -490,7 +494,7 @@ class StatsAPIView(APIView):
         })
 
 
-class UpdateProfileView(APIView):
+class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
 
     def put(self, request):
@@ -504,4 +508,13 @@ class UpdateProfileView(APIView):
             "message": "Profile updated successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+    
 
+    def get(self, request):
+        user = request.user
+        serializer = UpdateProfileSerializer(user)
+        return Response({
+            "code": "200",
+            "message": "Profile fetched successfully",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)

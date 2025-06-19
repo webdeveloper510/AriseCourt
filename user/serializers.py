@@ -93,6 +93,8 @@ class PasswordResetSerializer(serializers.Serializer):
 
 class LocationSerializer(serializers.ModelSerializer):
     courts = serializers.SerializerMethodField()
+    logo = serializers.ImageField(use_url=True)
+
     class Meta:
         model = Location
         fields = '__all__'
@@ -159,9 +161,10 @@ class UserDataSerializer(serializers.ModelSerializer):
     
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
+    email = serializers.EmailField (read_only = True)
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'image', 'phone']
+        fields = ['first_name', 'last_name', 'image', 'phone', 'email']
 
     def update(self, instance, validated_data):
         for field in ['first_name', 'last_name', 'image', 'phone']:
