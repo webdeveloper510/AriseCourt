@@ -25,6 +25,9 @@ urlpatterns = [
     path('reporting-data/', StatsAPIView.as_view(), name='stats'),
     path('user-data/', UserData.as_view(), name='user-data'),
     path('profile/', ProfileView.as_view(), name='profile'),
+    
+    path('check_court_availability/', CourtAvailabilityView.as_view(), name='check_court_availability'),
+
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 

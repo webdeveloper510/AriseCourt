@@ -518,3 +518,60 @@ class ProfileView(APIView):
             "message": "Profile fetched successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
+
+
+
+from datetime import datetime, time
+
+class CourtAvailabilityView(APIView):
+    def post(self, request, *args, **kwargs):
+        location_id = request.data.get('location_id')
+        booking_date = request.data.get('date')
+        start_time = request.data.get('start_time')
+        end_time = request.data.get('end_time')
+
+        if not (location_id and booking_date):
+            return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Parse date and time
+        try:
+            date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
+            if start_time and end_time:
+                start_time_obj = time.fromisoformat(start_time)
+                end_time_obj = time.fromisoformat(end_time)
+            else:
+                start_time_obj = None
+                end_time_obj = None
+        except ValueError:
+            return Response({"error": "Invalid date or time format."}, status=status.HTTP_400_BAD_REQUEST)
+
+        courts = Court.objects.filter(location_id=location_id)
+        result = []
+
+        for court in courts:
+            bookings = CourtBooking.objects.filter(
+                court=court,
+                booking_date=date_obj,
+                status__in=['pending', 'confirmed']
+            )
+
+            if start_time_obj and end_time_obj:
+                bookings = bookings.filter(
+                    start_time__lt=end_time_obj,
+                    end_time__gt=start_time_obj
+                )
+
+            is_booked = bookings.exists()
+
+            result.append({
+                "court_id": court.id,
+                "court_number": court.court_number,
+                "is_booked": is_booked
+            })
+
+        return Response({
+            "location_id": location_id,
+            "date": booking_date,
+            "courts": result
+        }, status=status.HTTP_200_OK)
