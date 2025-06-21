@@ -141,10 +141,43 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         queryset=Court.objects.all(), source='court', write_only=True
     )
     booking_id = serializers.IntegerField(source='id', read_only=True)
+
+
+    amount = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    cc_fees = serializers.SerializerMethodField()
+    summary = serializers.SerializerMethodField()
     
     class Meta:
         model = CourtBooking
         fields = '__all__' 
+
+
+    def get_amount(self, obj):
+        try:
+            return float(obj.court.court_fee_hrs)
+        except (ValueError, TypeError, AttributeError):
+            return 0.0
+
+    def get_tax(self, obj):
+        try:
+            return float(obj.court.tax)
+        except (ValueError, TypeError, AttributeError):
+            return 0.0
+
+    def get_cc_fees(self, obj):
+        try:
+            return float(obj.court.cc_fees)
+        except (ValueError, TypeError, AttributeError):
+            return 0.0
+
+    def get_summary(self, obj):
+        return round(
+            self.get_amount(obj) +
+            self.get_tax(obj) +
+            self.get_cc_fees(obj),
+            2
+        )
 
 
 class ContactUsSerializer(serializers.ModelSerializer):

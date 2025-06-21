@@ -599,3 +599,101 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
+    
+
+
+
+
+class CreateCourtBookingCheckoutSession(APIView):
+    def post(self, request):
+        try:
+            booking_id = request.data.get("booking_id")
+            booking = CourtBooking.objects.get(id=booking_id)
+            court = booking.court
+
+            # 1. Calculate duration in hours
+            duration_hours = calculate_duration(booking.start_time, booking.end_time)
+
+            # 2. Calculate total fee with breakdown
+            fee_data = calculate_total_fee(court, duration_hours)
+            total_amount = fee_data['total_amount']  # Must be an integer (in cents)
+
+            # 3. Create Stripe session
+            session = stripe.checkout.Session.create(
+                payment_method_types=['card'],
+                line_items=[{
+                    'price_data': {
+                        'currency': 'usd',
+                        'unit_amount': total_amount,
+                        'product_data': {
+                            'name': f"Court #{court.court_number} ({duration_hours:.1f} hours)",
+                        },
+                    },
+                    'quantity': 1,
+                }],
+                mode='payment',
+                success_url=settings.DOMAIN_URL + '/payment/success/',
+                cancel_url=settings.DOMAIN_URL + '/payment/cancel/',
+            )
+
+            # 4. Save Stripe session ID in booking
+            booking.stripe_session_id = session.id
+            booking.save()
+
+            # 5. Return session details + fee breakdown (optional)
+            return Response({
+                'checkout_session_id': session.id,
+                'checkout_url': session.url,
+                'amount_details': {
+                    'base_fee': fee_data['base_fee'],
+                    'tax': fee_data['tax'],
+                    'cc_fee': fee_data['cc_fee'],
+                    'total': total_amount / 100  # Convert to dollars for display
+                }
+            })
+
+        except CourtBooking.DoesNotExist:
+            return Response({'error': 'Invalid booking ID'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
+
+
+@csrf_exempt
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+    except stripe.error.SignatureVerificationError:
+        return HttpResponse(status=400)
+
+    if event['type'] == 'checkout.session.completed':
+        session = event['data']['object']
+        session_id = session.get('id')
+        payment_intent = session.get('payment_intent')
+        customer_id = session.get('customer')
+
+        try:
+            booking = CourtBooking.objects.get(stripe_session_id=session_id)
+            booking.is_paid = True
+            booking.status = 'confirmed'
+            booking.save()
+
+            # Create Payment record
+            Payment.objects.create(
+                user=booking.user,
+                booking=booking,
+                amount=booking.total_amount,  # Ensure booking has this field
+                payment_status='successful',
+                stripe_session_id=session_id,
+                stripe_payment_intent_id=payment_intent,
+                stripe_customer_id=customer_id,
+            )
+
+        except CourtBooking.DoesNotExist:
+            pass  # Optionally log this for debugging
+
+    return HttpResponse(status=200)

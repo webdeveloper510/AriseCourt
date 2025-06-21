@@ -26,7 +26,8 @@ urlpatterns = [
     path('user-data/', UserData.as_view(), name='user-data'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('check_court_availability/', CourtAvailabilityView.as_view(), name='check_court_availability'),
-
+    path('stripe-webhook/', stripe_webhook, name='stripe-webhook'),
+    path('create-checkout-session/', CreateCourtBookingCheckoutSession.as_view(), name='create-checkout-session'),
 
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
