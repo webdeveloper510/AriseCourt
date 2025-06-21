@@ -20,10 +20,11 @@ import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from django.utils.dateparse import parse_date
-import stripe
+# import stripe
 from .utils import calculate_total_fee, calculate_duration
 import json
 from django.views.decorators.csrf import csrf_exempt
+from datetime import datetime, time
 
 
 # Create your views here.
@@ -458,6 +459,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 class ContactUsViewSet(viewsets.ModelViewSet):
     queryset = ContactUs.objects.all()
     serializer_class = ContactUsSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['first_name', 'last_name', 'email', 'phone', 'message']
 
     
     def create(self, request, *args, **kwargs):
@@ -476,6 +479,27 @@ class ContactUsViewSet(viewsets.ModelViewSet):
             "message": "There was a problem with your submission.",
             "errors": serializer.errors
         }, status=status.HTTP_200_OK)
+    
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())  # Enables search
+
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response({
+                "code": "200",
+                "message": "Contact messages fetched successfully.",
+                "data": serializer.data
+            })
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response({
+            "code": "200",
+            "message": f"{queryset.count()} contact message(s) fetched successfully.",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+    
 
 
 class StatsAPIView(APIView):
@@ -522,7 +546,7 @@ class ProfileView(APIView):
 
 
 
-from datetime import datetime, time
+
 
 class CourtAvailabilityView(APIView):
     def post(self, request, *args, **kwargs):

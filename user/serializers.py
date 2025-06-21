@@ -116,18 +116,31 @@ class UserDataSerializer(serializers.ModelSerializer):
         fields = ['first_name', 'last_name', 'email', 'phone', 'user_type']
 
 
+
+class LocationDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Location
+        fields = ['description', 'address_1', 'address_2', 'address_3', 'address_4']
+
+
+
 class CourtDataSerializer(serializers.ModelSerializer):
+    location = LocationDataSerializer(source='location_id', read_only=True) 
     class Meta:
         model = Court
-        fields = ['court_number', 'court_fee_hrs', 'tax','availability']
+        fields = ['court_number', 'court_fee_hrs', 'tax','availability','location']
+
+
 
 
 class CourtBookingSerializer(serializers.ModelSerializer):
     user = UserDataSerializer(read_only=True)
     court = CourtDataSerializer(read_only=True)
+    location = LocationDataSerializer(read_only=True)
     court_id = serializers.PrimaryKeyRelatedField(
         queryset=Court.objects.all(), source='court', write_only=True
     )
+    booking_id = serializers.IntegerField(source='id', read_only=True)
     
     class Meta:
         model = CourtBooking
