@@ -20,7 +20,7 @@ import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from django.utils.dateparse import parse_date
-# import stripe
+import stripe
 from .utils import calculate_total_fee, calculate_duration
 import json
 from django.views.decorators.csrf import csrf_exempt
@@ -29,6 +29,8 @@ from datetime import datetime, time
 
 # Create your views here.
 
+
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 class LargeResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -605,20 +607,21 @@ class CourtAvailabilityView(APIView):
 
 
 class CreateCourtBookingCheckoutSession(APIView):
+    permission_classes = [IsAuthenticated]
+
     def post(self, request):
         try:
             booking_id = request.data.get("booking_id")
-            booking = CourtBooking.objects.get(id=booking_id)
+            if not booking_id:
+                return Response({"error": "Booking ID is required"}, status=400)
+
+            booking = CourtBooking.objects.get(id=booking_id, user=request.user)
             court = booking.court
 
-            # 1. Calculate duration in hours
             duration_hours = calculate_duration(booking.start_time, booking.end_time)
-
-            # 2. Calculate total fee with breakdown
             fee_data = calculate_total_fee(court, duration_hours)
-            total_amount = fee_data['total_amount']  # Must be an integer (in cents)
+            total_amount = fee_data['total_amount']  # In cents
 
-            # 3. Create Stripe session
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
                 line_items=[{
@@ -636,26 +639,21 @@ class CreateCourtBookingCheckoutSession(APIView):
                 cancel_url=settings.DOMAIN_URL + '/payment/cancel/',
             )
 
-            # 4. Save Stripe session ID in booking
             booking.stripe_session_id = session.id
+            booking.total_amount = total_amount / 100  # Save in dollars for record
             booking.save()
 
-            # 5. Return session details + fee breakdown (optional)
             return Response({
                 'checkout_session_id': session.id,
                 'checkout_url': session.url,
-                'amount_details': {
-                    'base_fee': fee_data['base_fee'],
-                    'tax': fee_data['tax'],
-                    'cc_fee': fee_data['cc_fee'],
-                    'total': total_amount / 100  # Convert to dollars for display
-                }
+                'amount_details': fee_data
             })
 
         except CourtBooking.DoesNotExist:
             return Response({'error': 'Invalid booking ID'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
 
 
 
