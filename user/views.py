@@ -29,7 +29,7 @@ from datetime import datetime, time
 
 # Create your views here.
 
-
+stripe.api_key = settings.STRIPE_SECRET_KEY
 
 
 class LargeResultsSetPagination(PageNumberPagination):
