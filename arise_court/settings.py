@@ -24,7 +24,6 @@ config = Config(RepositoryEnv(env_path))
 # Load sensitive or configurable values from .env
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 DOMAIN_URL = config('DOMAIN_URL')
 
