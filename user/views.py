@@ -609,53 +609,44 @@ class CourtAvailabilityView(APIView):
 
 
 
-class CreateCourtBookingCheckoutSession(APIView):
-    permission_classes = [IsAuthenticated]
-
+class CreatePaymentIntentView(APIView):
     def post(self, request):
         try:
             booking_id = request.data.get("booking_id")
-            if not booking_id:
-                return Response({"error": "Booking ID is required"}, status=400)
-
-            booking = CourtBooking.objects.get(id=booking_id, user=request.user)
+            booking = CourtBooking.objects.get(id=booking_id)
             court = booking.court
 
             duration_hours = calculate_duration(booking.start_time, booking.end_time)
             fee_data = calculate_total_fee(court, duration_hours)
-            total_amount = fee_data['total_amount']  # In cents
+            total_amount = fee_data['total_amount']
 
-            session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=[{
-                    'price_data': {
-                        'currency': 'usd',
-                        'unit_amount': total_amount,
-                        'product_data': {
-                            'name': f"Court #{court.court_number} ({duration_hours:.1f} hours)",
-                        },
-                    },
-                    'quantity': 1,
-                }],
-                mode='payment',
-                success_url=settings.DOMAIN_URL + '/payment/success/',
-                cancel_url=settings.DOMAIN_URL + '/payment/cancel/',
+            intent = stripe.PaymentIntent.create(
+                amount=int(total_amount),
+                currency="usd",
+                payment_method_types=["card"],
+                metadata={
+                    "booking_id": str(booking.id),
+                    "court_id": str(court.id),
+                }
             )
 
-            booking.stripe_session_id = session.id
-            booking.total_amount = total_amount / 100  # Save in dollars for record
+            booking.stripe_payment_intent_id = intent.id
             booking.save()
 
             return Response({
-                'checkout_session_id': session.id,
-                'checkout_url': session.url,
-                'amount_details': fee_data
+                "client_secret": intent.client_secret,  # ✅ Use this in Stripe Elements / mobile SDK
+                "amount_details": {
+                    "base_fee": fee_data["base_fee"],
+                    "tax": fee_data["tax"],
+                    "cc_fee": fee_data["cc_fee"],
+                    "total": total_amount / 100
+                }
             })
 
         except CourtBooking.DoesNotExist:
-            return Response({'error': 'Invalid booking ID'}, status=404)
+            return Response({"error": "Invalid booking ID"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'error': str(e)}, status=400)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
