@@ -111,11 +111,11 @@ class CourtSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+
 class UserDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'phone', 'user_type']
-
 
 
 class LocationDataSerializer(serializers.ModelSerializer):
@@ -124,35 +124,35 @@ class LocationDataSerializer(serializers.ModelSerializer):
         fields = ['description', 'address_1', 'address_2', 'address_3', 'address_4']
 
 
-
 class CourtDataSerializer(serializers.ModelSerializer):
-    location = LocationDataSerializer(source='location_id', read_only=True) 
+    location = LocationDataSerializer(source='location_id', read_only=True)
+
     class Meta:
         model = Court
-        fields = ['court_number', 'court_fee_hrs', 'tax','availability','location']
-
-
+        fields = ['court_number', 'court_fee_hrs', 'tax', 'cc_fees', 'availability', 'location']
 
 
 class CourtBookingSerializer(serializers.ModelSerializer):
     user = UserDataSerializer(read_only=True)
     court = CourtDataSerializer(read_only=True)
-    location = LocationDataSerializer(read_only=True)
     court_id = serializers.PrimaryKeyRelatedField(
         queryset=Court.objects.all(), source='court', write_only=True
     )
     booking_id = serializers.IntegerField(source='id', read_only=True)
 
-
     amount = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     cc_fees = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = CourtBooking
-        fields = '__all__' 
-
+        fields = [
+            'booking_id', 'user', 'court', 'court_id', 'booking_date',
+            'start_time', 'end_time', 'duration_time', 'status',
+            'created_at', 'updated_at',
+            'amount', 'tax', 'cc_fees', 'summary'
+        ]
 
     def get_amount(self, obj):
         try:

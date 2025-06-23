@@ -3,6 +3,8 @@ from django.contrib.auth.models import AbstractBaseUser,  PermissionsMixin
 from django_countries.fields import CountryField
 from .managers import CustomUserManager
 import uuid
+from django.utils import timezone
+
 
 
 # Create your models here.
@@ -105,3 +107,23 @@ class ContactUs(models.Model):
 class AdminPermission(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     access_flag = models.CharField(max_length=10)
+
+
+class Payment(models.Model):
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('successful', 'Successful'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_payments', null=True, blank=True)
+    booking = models.ForeignKey(CourtBooking, on_delete=models.CASCADE, related_name='booking_payments', null=True, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending', null=True, blank=True)
+    stripe_session_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_payment_intent_id = models.CharField(max_length=255, null=True, blank=True)
+    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
+    payment_date = models.DateTimeField(default=timezone.now, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True,null=True)
+    updated_at = models.DateTimeField(auto_now=True, null=True)

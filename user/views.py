@@ -16,6 +16,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
+from django.utils.timezone import now
 import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
@@ -618,7 +619,7 @@ class CreatePaymentIntentView(APIView):
 
             duration_hours = calculate_duration(booking.start_time, booking.end_time)
             fee_data = calculate_total_fee(court, duration_hours)
-            total_amount = fee_data['total_amount']
+            total_amount = fee_data['total_amount']  # In cents
 
             intent = stripe.PaymentIntent.create(
                 amount=int(total_amount),
@@ -630,11 +631,12 @@ class CreatePaymentIntentView(APIView):
                 }
             )
 
+            # Save intent ID for reference
             booking.stripe_payment_intent_id = intent.id
             booking.save()
 
             return Response({
-                "client_secret": intent.client_secret,  # ✅ Use this in Stripe Elements / mobile SDK
+                "client_secret": intent.client_secret,
                 "amount_details": {
                     "base_fee": fee_data["base_fee"],
                     "tax": fee_data["tax"],
@@ -651,41 +653,73 @@ class CreatePaymentIntentView(APIView):
 
 
 
+
+
 @csrf_exempt
 def stripe_webhook(request):
     payload = request.body
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-    endpoint_secret = os.getenv("STRIPE_WEBHOOK_SECRET")
+    endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
-    except stripe.error.SignatureVerificationError:
+    except (ValueError, stripe.error.SignatureVerificationError):
         return HttpResponse(status=400)
 
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        session_id = session.get('id')
-        payment_intent = session.get('payment_intent')
-        customer_id = session.get('customer')
+    if event['type'] == 'payment_intent.succeeded':
+        intent = event['data']['object']
+        payment_intent_id = intent['id']
+        amount_received = intent['amount_received'] / 100  # cents to dollars
+        metadata = intent.get('metadata', {})
+        booking_id = metadata.get('booking_id')
+        customer_id = intent.get('customer')
 
         try:
-            booking = CourtBooking.objects.get(stripe_session_id=session_id)
-            booking.is_paid = True
+            booking = CourtBooking.objects.get(id=booking_id)
+            user = booking.user
+
+            # Prevent duplicate payments if webhook is triggered multiple times
+            payment, created = Payment.objects.get_or_create(
+                stripe_payment_intent_id=payment_intent_id,
+                defaults={
+                    "user": user,
+                    "booking": booking,
+                    "amount": amount_received,
+                    "payment_status": "successful",
+                    "stripe_customer_id": customer_id,
+                    "payment_date": now(),
+                }
+            )
+
+            if booking.status != "confirmed":
+                booking.status = "confirmed"
+                booking.save()
+
+        except CourtBooking.DoesNotExist:
+            pass  # Optional: log this
+
+    return HttpResponse(status=200)
+
+
+
+
+
+class PaymentSuccessAPIView(APIView):
+    def post(self, request):
+        client_value = request.data.get("payment_intent_id")
+
+        if not client_value:
+            return Response({"error": "PaymentIntent ID is required"}, status=400)
+
+        # Remove client_secret suffix if present
+        payment_intent_id = client_value.split("_secret")[0]
+
+        try:
+            payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+            booking = payment.booking
             booking.status = 'confirmed'
             booking.save()
 
-            # Create Payment record
-            Payment.objects.create(
-                user=booking.user,
-                booking=booking,
-                amount=booking.total_amount,  # Ensure booking has this field
-                payment_status='successful',
-                stripe_session_id=session_id,
-                stripe_payment_intent_id=payment_intent,
-                stripe_customer_id=customer_id,
-            )
-
-        except CourtBooking.DoesNotExist:
-            pass  # Optionally log this for debugging
-
-    return HttpResponse(status=200)
+            return Response({"success": True})
+        except Payment.DoesNotExist:
+            return Response({"error": "Payment not found"}, status=404)
