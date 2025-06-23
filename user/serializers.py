@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .mail import MailUtils
 from django.contrib.auth.hashers import make_password
+from datetime import datetime, timedelta
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -219,3 +220,24 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
 
         instance.save()
         return instance
+    
+
+class CourtBookingReportSerializer(serializers.ModelSerializer):
+    location_id = serializers.IntegerField(source='court.location_id.id')
+    description = serializers.CharField(source='court.location_id.description')
+    first_name = serializers.CharField(source='user.first_name')
+    last_name = serializers.CharField(source='user.last_name')
+    email = serializers.EmailField(source='user.email')
+    phone = serializers.CharField(source='user.phone')
+    duration_time = serializers.CharField()
+
+    class Meta:
+        model = CourtBooking
+        fields = ['location_id','description','first_name','last_name','email','phone','duration','amount_paid',]
+
+    def get_duration(self, obj):
+        if obj.start_time and obj.end_time:
+            start = datetime.combine(obj.booking_date, obj.start_time)
+            end = datetime.combine(obj.booking_date, obj.end_time)
+            return round((end - start).seconds / 3600, 2)
+        return None

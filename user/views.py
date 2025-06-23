@@ -16,7 +16,7 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
-import random
+# import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
 from django.utils.dateparse import parse_date
@@ -30,7 +30,7 @@ from datetime import datetime, time
 # Create your views here.
 
 
-stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 class LargeResultsSetPagination(PageNumberPagination):
     page_size = 10
@@ -602,6 +602,9 @@ class CourtAvailabilityView(APIView):
             "courts": result
         }, status=status.HTTP_200_OK)
     
+
+
+
 
 
 
