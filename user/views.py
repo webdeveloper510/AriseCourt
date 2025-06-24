@@ -114,7 +114,7 @@ class UserCreateView(APIView):
             "message": f"{first_field}: {first_error_message}"
         }
 
-        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+        return Response(response_data, status=status.HTTP_200_OK)
 
     
 
