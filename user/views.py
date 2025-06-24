@@ -93,23 +93,29 @@ class UserData(APIView):
 
 
 
+
 class UserCreateView(APIView):
     def post(self, request):
-        user = UserSerializer(data=request.data)
-        if user.is_valid():
-            data = user.save()
-            MailUtils.send_verification_email(data)
+        serializer = UserSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            MailUtils.send_verification_email(user)
             return Response({
                 "message": "Please check your email to verify your account before logging in.",
                 "status": status.HTTP_201_CREATED
             }, status=status.HTTP_201_CREATED)
-        
-        return Response({
-            "code": '400',
-            "message": "User registration failed. Please correct the errors below.",
-            "errors": user.errors,
-        }, status=status.HTTP_200_OK)
-    
+
+        # Extract the first field and its first error message
+        first_field = next(iter(serializer.errors))
+        first_error_message = serializer.errors[first_field][0]
+
+        response_data = {
+            "code": "400",
+            "message": f"{first_field}: {first_error_message}"
+        }
+
+        return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+
     
 
 class UserLoginView(APIView):

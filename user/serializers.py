@@ -21,6 +21,33 @@ class UserSerializer(serializers.ModelSerializer):
             'password': {'write_only': True}
         }
 
+
+
+    def validate_first_name(self, value):
+        if not value.isalpha():
+            raise serializers.ValidationError("First name should contain only letters.")
+        return value
+
+    def validate_last_name(self, value):
+        if not value.isalpha():
+            raise serializers.ValidationError("Last name should contain only letters.")
+        return value
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("This email is already registered.")
+        return value
+
+    def validate_phone(self, value):
+        if not value.isdigit() or len(value) != 10:
+            raise serializers.ValidationError("Phone number must be 10 digits.")
+        return value
+
+    def validate_country(self, value):
+        if not value.isalpha():
+            raise serializers.ValidationError("Country name should only contain letters.")
+        return value
+
     def validate(self, data):
         if data['password'] != data['confirm_password']:
             raise serializers.ValidationError("Passwords do not match.")
