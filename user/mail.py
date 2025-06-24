@@ -8,7 +8,7 @@ from django.utils.encoding import smart_str, force_bytes, DjangoUnicodeDecodeErr
 class MailUtils:
     @staticmethod
     def send_verification_email(user):
-            verification_link = f"http://localhost:8000/verify-email/{user.uuid}/"
+            verification_link = f"{settings.BACKEND_URL}/verify-email/{user.uuid}/"
             subject = "Verify Your Email - Arise Court"
             html_message = render_to_string("email_verification_template/email.html", {
                 'user': user,
@@ -29,7 +29,7 @@ class MailUtils:
         uid = urlsafe_base64_encode(force_bytes(user.id))
         token = PasswordResetTokenGenerator().make_token(user)
 
-        reset_link = f"http://localhost:8000/reset-password/{uid}/{token}/"
+        reset_link = f"{settings.BACKEND_URL}/reset-password/{uid}/{token}/"
 
         subject = "Password Reset Email - Arise Court"
         html_message = render_to_string("email_verification_template/password_reset_mail.html", {
