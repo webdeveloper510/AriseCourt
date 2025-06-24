@@ -97,13 +97,18 @@ class UserCreateView(APIView):
     def post(self, request):
         user = UserSerializer(data=request.data)
         if user.is_valid():
-            data=user.save()
+            data = user.save()
             MailUtils.send_verification_email(data)
             return Response({
                 "message": "Please check your email to verify your account before logging in.",
                 "status": status.HTTP_201_CREATED
-            })
-        return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
+            }, status=status.HTTP_201_CREATED)
+        
+        return Response({
+            "code": '400',
+            "message": "User registration failed. Please correct the errors below.",
+            "errors": user.errors,
+        }, status=status.HTTP_200_OK)
     
     
 
