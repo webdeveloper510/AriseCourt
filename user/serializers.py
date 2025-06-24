@@ -34,6 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
         user.save()
         return user
 
+
  
 class UserLoginFieldsSerializer(serializers.ModelSerializer):
     access_flag = serializers.CharField(source='adminpermission.access_flag', read_only=True)
@@ -42,6 +43,7 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
         model = User
         fields = ['id','first_name','last_name','user_type','phone','is_verified','email','access_flag']
     
+
 
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
@@ -68,13 +70,16 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
             return None
     
 
+
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(required=True)
 
 
+
 class PasswordResetEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
+
 
 
 class PasswordResetSerializer(serializers.Serializer):
@@ -92,6 +97,7 @@ class PasswordResetSerializer(serializers.Serializer):
         return data
 
 
+
 class LocationSerializer(serializers.ModelSerializer):
     courts = serializers.SerializerMethodField()
     logo = serializers.ImageField(use_url=True)
@@ -103,6 +109,7 @@ class LocationSerializer(serializers.ModelSerializer):
     def get_courts(self, obj):
         courts = Court.objects.filter(location_id=obj.id)
         return CourtSerializer(courts, many=True).data    
+
 
 
 class CourtSerializer(serializers.ModelSerializer):
@@ -118,10 +125,12 @@ class UserDataSerializer(serializers.ModelSerializer):
         fields = ['first_name', 'last_name', 'email', 'phone', 'user_type']
 
 
+
 class LocationDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = ['description', 'address_1', 'address_2', 'address_3', 'address_4']
+
 
 
 class CourtDataSerializer(serializers.ModelSerializer):
@@ -130,6 +139,7 @@ class CourtDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = Court
         fields = ['court_number', 'court_fee_hrs', 'tax', 'cc_fees', 'availability', 'location']
+
 
 
 class CourtBookingSerializer(serializers.ModelSerializer):
@@ -181,16 +191,19 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         )
 
 
+
 class ContactUsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactUs
         fields = '__all__'
 
 
+
 class CourtBookingDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourtBooking
         fields = ['booking_date', 'start_time', 'duration_time']
+
 
 
 class UserDataSerializer(serializers.ModelSerializer):
@@ -207,6 +220,7 @@ class UserDataSerializer(serializers.ModelSerializer):
         return None
     
 
+
 class UpdateProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField (read_only = True)
     class Meta:
@@ -221,6 +235,7 @@ class UpdateProfileSerializer(serializers.ModelSerializer):
         instance.save()
         return instance
     
+
 
 class CourtBookingReportSerializer(serializers.ModelSerializer):
     location_id = serializers.IntegerField(source='court.location_id.id')

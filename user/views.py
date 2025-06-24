@@ -39,12 +39,14 @@ class LargeResultsSetPagination(PageNumberPagination):
     max_page_size = 10000
     
 
+
 def get_tokens_for_user(user):
         refresh = RefreshToken.for_user(user)
         return {
             # 'refresh': str(refresh),
             'access': str(refresh.access_token),
         }
+
 
 
 class UserData(APIView):
@@ -89,6 +91,7 @@ class UserData(APIView):
         return paginator.get_paginated_response(serialized_data.data)
 
 
+
 class UserCreateView(APIView):
     def post(self, request):
         user = UserSerializer(data=request.data)
@@ -102,6 +105,7 @@ class UserCreateView(APIView):
         return Response(user.errors, status=status.HTTP_400_BAD_REQUEST)
     
     
+
 class UserLoginView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
@@ -130,6 +134,7 @@ class UserLoginView(APIView):
             }, status=status.HTTP_200_OK)
    
     
+
 class VerifyEmailView(View):
     def get(self,request, uuid):
         user = get_object_or_404(User, uuid=uuid)
@@ -140,6 +145,7 @@ class VerifyEmailView(View):
         user.is_verified = True
         user.save()
         return HttpResponse("Email verified successfully! You can now log in.")
+
 
 
 class PasswordResetEmailView(APIView):
@@ -164,6 +170,7 @@ class PasswordResetEmailView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+
 class VerifyOTPView(APIView):
     def post(self, request):
         email = request.data.get('email')
@@ -179,6 +186,7 @@ class VerifyOTPView(APIView):
 
         return Response({"message": "OTP verified successfully.",'code': '200'}, status=status.HTTP_200_OK)
     
+
 
 class ResendOTPView(APIView):
     def post(self, request):
@@ -201,6 +209,7 @@ class ResendOTPView(APIView):
         MailUtils.send_password_reset_email(user)
 
         return Response({"message": "OTP and reset link have been resent to the email.", 'code': status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
 
 
 class PasswordResetConfirmView(APIView):
@@ -233,12 +242,13 @@ class PasswordResetConfirmView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+
 class LocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name', 'email', 'phone', 'city']
+    search_fields = ['user__first_name', 'email', 'phone', 'city','address_1','address_2','address_3','address_4','description','state','country']
     
     def get_queryset(self):
         queryset = Location.objects.all()
@@ -272,6 +282,7 @@ class LocationViewSet(viewsets.ModelViewSet):
         return Response({"message": "Location deleted successfully.","status_code": status.HTTP_200_OK},status=status.HTTP_200_OK)
 
 
+
 class CourtViewSet(viewsets.ModelViewSet):
     queryset = Court.objects.all()
     serializer_class = CourtSerializer
@@ -296,6 +307,7 @@ class CourtViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return Response({"message": "Court deleted successfully.","status_code": status.HTTP_200_OK},status=status.HTTP_200_OK)
     
+
 
 class AdminViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -379,6 +391,7 @@ class AdminViewSet(viewsets.ModelViewSet):
         return Response({"message": "Admin deleted successfully.","status_code": status.HTTP_200_OK}, status=status.HTTP_200_OK)
     
 
+
 class CourtBookingViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
@@ -459,6 +472,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=201)
     
     
+    
 class ContactUsViewSet(viewsets.ModelViewSet):
     queryset = ContactUs.objects.all()
     serializer_class = ContactUsSerializer
@@ -501,7 +515,6 @@ class ContactUsViewSet(viewsets.ModelViewSet):
             "message": f"{queryset.count()} contact message(s) fetched successfully.",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
-
     
 
 
@@ -519,6 +532,7 @@ class StatsAPIView(APIView):
             'total_courts': total_courts,
             'total_profit': total_profit
         })
+
 
 
 class ProfileView(APIView):
@@ -545,9 +559,6 @@ class ProfileView(APIView):
             "message": "Profile fetched successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
-
-
-
 
 
 
@@ -602,11 +613,6 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
-    
-
-
-
-
 
 
 
@@ -649,9 +655,6 @@ class CreatePaymentIntentView(APIView):
             return Response({"error": "Invalid booking ID"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
-
-
 
 
 
@@ -699,8 +702,6 @@ def stripe_webhook(request):
             pass  # Optional: log this
 
     return HttpResponse(status=200)
-
-
 
 
 

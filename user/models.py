@@ -13,6 +13,7 @@ class BaseModel(models.Model):
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
 
+
 class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     USER_TYPES = (
             (0, 'SuperAdmin'),
@@ -43,13 +44,15 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
     
-    
+
+
 class PasswordResetOTP(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     otp = models.CharField(max_length=6)
     expires_at = models.DateTimeField() 
     otp_verified = models.BooleanField(default=False)
     
+
 
 class Location(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -69,6 +72,7 @@ class Location(models.Model):
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
 
+
 class Court(BaseModel, models.Model):
     location_id = models.ForeignKey(Location, on_delete=models.CASCADE)
     court_number = models.CharField(max_length=30)
@@ -76,6 +80,7 @@ class Court(BaseModel, models.Model):
     tax = models.CharField()
     cc_fees = models.CharField()
     availability = models.BooleanField(default=False)
+
 
 
 class CourtBooking(models.Model):
@@ -96,6 +101,7 @@ class CourtBooking(models.Model):
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
 
+
 class ContactUs(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -104,9 +110,11 @@ class ContactUs(models.Model):
     message = models.TextField()
 
 
+
 class AdminPermission(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     access_flag = models.CharField(max_length=10)
+
 
 
 class Payment(models.Model):
