@@ -10,7 +10,7 @@ def calculate_total_fee(court, duration_hours):
         "base_fee": base_fee,
         "tax": tax,
         "cc_fee": cc_fee,
-        "total_amount": int(total * 100)
+        "total_amount": total
     }
 
 
