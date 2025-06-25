@@ -12,6 +12,9 @@ class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True,null=True)
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
+    class Meta:
+        abstract = True
+
 
 
 class User(BaseModel,AbstractBaseUser, PermissionsMixin):
@@ -73,7 +76,7 @@ class Location(models.Model):
 
 
 
-class Court(BaseModel, models.Model):
+class Court(BaseModel):
     location_id = models.ForeignKey(Location, on_delete=models.CASCADE)
     court_number = models.CharField(max_length=30)
     court_fee_hrs = models.CharField(max_length=20)
