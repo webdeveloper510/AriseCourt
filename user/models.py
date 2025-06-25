@@ -33,7 +33,7 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     verification_token = models.CharField(max_length=100, null=True, blank=True)
     phone = models.CharField(max_length=15, unique=True,null=True)
     country = CountryField(blank_label='(select country)',null=True)
-    password = models.CharField(max_length=20)
+    password = models.CharField(max_length=1000)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
@@ -82,6 +82,7 @@ class Court(BaseModel):
     tax = models.CharField()
     cc_fees = models.CharField()
     availability = models.BooleanField(default=False)
+    test = models.CharField(max_length=20,null=True)
 
 
 
