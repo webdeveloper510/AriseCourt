@@ -185,7 +185,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     class Meta:
         model = CourtBooking
         fields = [
-            'booking_id', 'user', 'court', 'court_id', 'booking_date',
+            'booking_id', 'user', 'court', 'court_id', 'booking_date','book_for_six_months',
             'start_time', 'end_time', 'duration_time', 'status',
             'created_at', 'updated_at',
             'amount', 'tax', 'cc_fees', 'summary'

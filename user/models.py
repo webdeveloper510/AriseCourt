@@ -79,8 +79,8 @@ class Court(BaseModel):
     location_id = models.ForeignKey(Location, on_delete=models.CASCADE)
     court_number = models.CharField(max_length=30)
     court_fee_hrs = models.CharField(max_length=20)
-    tax = models.CharField()
-    cc_fees = models.CharField()
+    tax = models.CharField(max_length=100)
+    cc_fees = models.CharField(max_length=100)
     availability = models.BooleanField(default=False)
 
 
@@ -91,7 +91,8 @@ class CourtBooking(models.Model):
     booking_date = models.DateField()
     start_time = models.TimeField()
     end_time = models.TimeField()
-    duration_time = models.CharField(blank=True, null=True)
+    duration_time = models.CharField(blank=True, null=True,max_length=225)
+    book_for_six_months = models.BooleanField(default=False)
     status_choices = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
@@ -108,7 +109,7 @@ class ContactUs(models.Model):
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
-    phone = models.CharField()
+    phone = models.CharField(max_length=100)
     message = models.TextField()
 
 
