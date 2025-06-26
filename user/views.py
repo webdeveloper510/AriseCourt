@@ -728,7 +728,7 @@ class CreatePaymentIntentView(APIView):
             cc_fees = court.cc_fees 
             fee_data = calculate_total_fee(total_price, tax, cc_fees)
             total_amount = fee_data['total_amount']
-            total_price = int(total_amount * 100),
+            total_price = int(total_amount * 100)
             
             intent = stripe.PaymentIntent.create(
                 amount=total_price,
