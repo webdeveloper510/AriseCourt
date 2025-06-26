@@ -80,8 +80,10 @@ class Court(BaseModel):
     court_number = models.CharField(max_length=30)
     court_fee_hrs = models.CharField(max_length=20)
     tax = models.CharField(max_length=100)
-    cc_fees = models.CharField(max_length=100)
+    cc_fees = models.CharField(max_length=100)  
     availability = models.BooleanField(default=False)
+    start_time = models.TimeField(null=True, blank=True)
+    end_time = models.TimeField(null=True, blank=True)
 
 
 
