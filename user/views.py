@@ -484,6 +484,15 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         MailUtils.booking_confirmation_mail(request.user,booking)
         return Response(serializer.data, status=201)
     
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.pop('partial', True)
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response({"message": "Court_bookings updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data},status=status.HTTP_200_OK)
+
+    
     
     
 class ContactUsViewSet(viewsets.ModelViewSet):
@@ -641,6 +650,7 @@ class CourtAvailabilityView(APIView):
             result.append({
                 "court_id": court.id,
                 "court_number": court.court_number,
+                "price_per_hour": court.court_fee_hrs,  
                 "is_booked": is_booked
             })
 
@@ -712,13 +722,15 @@ class CreatePaymentIntentView(APIView):
             booking_id = request.data.get("booking_id")
             booking = CourtBooking.objects.get(id=booking_id)
             court = booking.court
+            total_price = booking.total_price
+            
 
-            duration_hours = calculate_duration(booking.start_time, booking.end_time)
-            fee_data = calculate_total_fee(court, duration_hours)
-            total_amount = fee_data['total_amount']  # In cents
+            # duration_hours = calculate_duration(booking.start_time, booking.end_time)
+            fee_data = calculate_total_fee(total_price)
+            # total_amount = fee_data['total_amount']  # In cents
 
             intent = stripe.PaymentIntent.create(
-                amount=int(total_amount),
+                amount=int(total_price),
                 currency="usd",
                 payment_method_types=["card"],
                 metadata={

@@ -1,7 +1,8 @@
 from datetime import datetime
 
 
-def calculate_total_fee(court, duration_hours):
+def calculate_total_fee(court,):
+    print("jjjjjjjjjjjjjj",court)
     base_fee = float(court.court_fee_hrs) * duration_hours
     tax = base_fee * 0.10
     cc_fee = base_fee * 0.10
