@@ -734,10 +734,7 @@ class CreatePaymentIntentView(APIView):
             return Response({
                 "client_secret": intent.client_secret,
                 "amount_details": {
-                    "base_fee": fee_data["base_fee"],
-                    "tax": fee_data["tax"],
-                    "cc_fee": fee_data["cc_fee"],
-                    "total": total_amount / 100
+                    "total": total_amount
                 }
             })
 
