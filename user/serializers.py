@@ -190,23 +190,30 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'amount', 'tax', 'cc_fees', 'summary'
         ]
-
+    
     def get_amount(self, obj):
         try:
-            return float(obj.court.court_fee_hrs)
-        except (ValueError, TypeError, AttributeError):
+            rate_per_hour = float(obj.court.court_fee_hrs)
+            # Get duration in hours (e.g. 4:30:00 => 4.5)
+            if isinstance(obj.duration_time, timedelta):
+                hours = obj.duration_time.total_seconds() / 3600
+            else:
+                h, m, s = map(int, str(obj.duration_time).split(':'))
+                hours = h + m / 60 + s / 3600
+            return round(rate_per_hour * hours, 2)
+        except:
             return 0.0
 
     def get_tax(self, obj):
         try:
             return float(obj.court.tax)
-        except (ValueError, TypeError, AttributeError):
+        except:
             return 0.0
 
     def get_cc_fees(self, obj):
         try:
             return float(obj.court.cc_fees)
-        except (ValueError, TypeError, AttributeError):
+        except:
             return 0.0
 
     def get_summary(self, obj):
@@ -216,6 +223,32 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             self.get_cc_fees(obj),
             2
         )
+        
+    # def get_amount(self, obj):
+    #     try:
+    #         return float(obj.court.court_fee_hrs)
+    #     except (ValueError, TypeError, AttributeError):
+    #         return 0.0
+
+    # def get_tax(self, obj):
+    #     try:
+    #         return float(obj.court.tax)
+    #     except (ValueError, TypeError, AttributeError):
+    #         return 0.0
+
+    # def get_cc_fees(self, obj):
+    #     try:
+    #         return float(obj.court.cc_fees)
+    #     except (ValueError, TypeError, AttributeError):
+    #         return 0.0
+
+    # def get_summary(self, obj):
+    #     return round(
+    #         self.get_amount(obj) +
+    #         self.get_tax(obj) +
+    #         self.get_cc_fees(obj),
+    #         2
+    #     )
 
 
 

@@ -717,6 +717,7 @@ class CourtAvailabilityView(APIView):
 
 
 class CreatePaymentIntentView(APIView):
+       
     def post(self, request):
         try:
             booking_id = request.data.get("booking_id")
@@ -727,8 +728,10 @@ class CreatePaymentIntentView(APIView):
             cc_fees = court.cc_fees 
             fee_data = calculate_total_fee(total_price, tax, cc_fees)
             total_amount = fee_data['total_amount']
+            total_price = int(total_amount * 100),
+            
             intent = stripe.PaymentIntent.create(
-                amount=int(total_amount),
+                amount=total_price,
                 currency="usd",
                 payment_method_types=["card"],
                 metadata={
@@ -744,7 +747,7 @@ class CreatePaymentIntentView(APIView):
             return Response({
                 "client_secret": intent.client_secret,
                 "amount_details": {
-                    "total": total_amount
+                    "total": total_price
                 }
             })
 
