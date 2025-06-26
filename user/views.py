@@ -723,14 +723,12 @@ class CreatePaymentIntentView(APIView):
             booking = CourtBooking.objects.get(id=booking_id)
             court = booking.court
             total_price = booking.total_price
-            
-
-            # duration_hours = calculate_duration(booking.start_time, booking.end_time)
-            fee_data = calculate_total_fee(total_price)
-            # total_amount = fee_data['total_amount']  # In cents
-
+            tax = court.tax                   
+            cc_fees = court.cc_fees 
+            fee_data = calculate_total_fee(total_price, tax, cc_fees)
+            total_amount = fee_data['total_amount']
             intent = stripe.PaymentIntent.create(
-                amount=int(total_price),
+                amount=int(total_amount),
                 currency="usd",
                 payment_method_types=["card"],
                 metadata={

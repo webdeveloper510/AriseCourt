@@ -1,18 +1,26 @@
 from datetime import datetime
 
 
-def calculate_total_fee(court,):
-    print("jjjjjjjjjjjjjj",court)
-    base_fee = float(court.court_fee_hrs) * duration_hours
-    tax = base_fee * 0.10
-    cc_fee = base_fee * 0.10
-    total = base_fee + tax + cc_fee
-    return {
-        "base_fee": base_fee,
-        "tax": tax,
-        "cc_fee": cc_fee,
-        "total_amount": total
-    }
+# def calculate_total_fee(tax,cc_fees,total_price):
+#     print("jfhfhfhfhfhfhf")
+#     tax = total_price * 0.10
+#     cc_fees = total_price * 0.10
+#     total = total_price + tax + cc_fees
+#     print("00000000000000000",total)
+#     return {
+#         "total_amount": total
+#     }
+
+def calculate_total_fee(total_price, tax_percent, cc_fees_percent):
+    total_price = float(total_price)
+    tax_percent = float(tax_percent)
+    cc_fees_percent = float(cc_fees_percent)
+
+    tax_amount = total_price * (tax_percent / 100)
+    cc_fee_amount = total_price * (cc_fees_percent / 100)
+    total = total_price + tax_amount + cc_fee_amount
+
+    return {"total_amount": total}
 
 
 def calculate_duration(start_time, end_time):
