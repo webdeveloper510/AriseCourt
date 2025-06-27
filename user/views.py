@@ -651,6 +651,8 @@ class CourtAvailabilityView(APIView):
                 "court_id": court.id,
                 "court_number": court.court_number,
                 "price_per_hour": court.court_fee_hrs,  
+                "start_time": court.start_time, 
+                "end_time": court.end_time, 
                 "is_booked": is_booked
             })
 
