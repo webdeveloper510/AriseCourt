@@ -125,6 +125,9 @@ class PasswordResetSerializer(serializers.Serializer):
 
 
 
+
+
+
 class LocationSerializer(serializers.ModelSerializer):
     courts = serializers.SerializerMethodField()
     logo = serializers.ImageField(use_url=True)
@@ -133,9 +136,15 @@ class LocationSerializer(serializers.ModelSerializer):
         model = Location
         fields = '__all__'
 
+    # def get_courts(self, obj):
+    #     courts = Court.objects.filter(location_id=obj.id)
+    #     return CourtSerializer(courts, many=True).data 
     def get_courts(self, obj):
         courts = Court.objects.filter(location_id=obj.id)
-        return CourtSerializer(courts, many=True).data    
+        data = CourtSerializer(courts, many=True).data
+        for court in data:
+            court['court_id'] = court.pop('id')  # Rename 'id' to 'court_id'
+        return data
 
 
 
