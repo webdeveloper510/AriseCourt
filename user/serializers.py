@@ -169,6 +169,17 @@ class CourtDataSerializer(serializers.ModelSerializer):
 
 
 
+
+def calculate_total_fee(total_price, tax_percent, cc_fees_percent):
+        total_price = float(total_price)
+        tax_amount = total_price * float(tax_percent) / 100
+        cc_fee_amount = total_price * float(cc_fees_percent) / 100
+        total_amount = total_price + tax_amount + cc_fee_amount
+        return {
+            'tax': round(tax_amount, 2),
+            'cc_fees': round(cc_fee_amount, 2),
+            'total': round(total_amount, 2)
+        } 
 class CourtBookingSerializer(serializers.ModelSerializer):
     user = UserDataSerializer(read_only=True)
     court = CourtDataSerializer(read_only=True)
@@ -190,66 +201,27 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'amount', 'tax', 'cc_fees', 'summary'
         ]
+        
     
+       
+       
     def get_amount(self, obj):
-        try:
-            rate_per_hour = float(obj.court.court_fee_hrs)
-            # Get duration in hours (e.g. 4:30:00 => 4.5)
-            if isinstance(obj.duration_time, timedelta):
-                hours = obj.duration_time.total_seconds() / 3600
-            else:
-                h, m, s = map(int, str(obj.duration_time).split(':'))
-                hours = h + m / 60 + s / 3600
-            return round(rate_per_hour * hours, 2)
-        except:
-            return 0.0
+        return float(obj.total_price)
 
     def get_tax(self, obj):
-        try:
-            return float(obj.court.tax)
-        except:
-            return 0.0
+        tax_percent = float(obj.court.tax)
+        data = calculate_total_fee(obj.total_price, tax_percent, obj.court.cc_fees)
+        return f"{data['tax']} ({tax_percent}%)"
 
     def get_cc_fees(self, obj):
-        try:
-            return float(obj.court.cc_fees)
-        except:
-            return 0.0
+        cc_fees_percent = float(obj.court.cc_fees)
+        data = calculate_total_fee(obj.total_price, obj.court.tax, cc_fees_percent)
+        return f"{data['cc_fees']} ({cc_fees_percent}%)"
 
     def get_summary(self, obj):
-        return round(
-            self.get_amount(obj) +
-            self.get_tax(obj) +
-            self.get_cc_fees(obj),
-            2
-        )
-        
-    # def get_amount(self, obj):
-    #     try:
-    #         return float(obj.court.court_fee_hrs)
-    #     except (ValueError, TypeError, AttributeError):
-    #         return 0.0
-
-    # def get_tax(self, obj):
-    #     try:
-    #         return float(obj.court.tax)
-    #     except (ValueError, TypeError, AttributeError):
-    #         return 0.0
-
-    # def get_cc_fees(self, obj):
-    #     try:
-    #         return float(obj.court.cc_fees)
-    #     except (ValueError, TypeError, AttributeError):
-    #         return 0.0
-
-    # def get_summary(self, obj):
-    #     return round(
-    #         self.get_amount(obj) +
-    #         self.get_tax(obj) +
-    #         self.get_cc_fees(obj),
-    #         2
-    #     )
-
+        data = calculate_total_fee(obj.total_price, obj.court.tax, obj.court.cc_fees)
+        return data['total']    
+    
 
 
 class ContactUsSerializer(serializers.ModelSerializer):

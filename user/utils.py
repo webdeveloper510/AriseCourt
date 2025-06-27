@@ -1,25 +1,12 @@
 from datetime import datetime
 
-
-# def calculate_total_fee(tax,cc_fees,total_price):
-#     print("jfhfhfhfhfhfhf")
-#     tax = total_price * 0.10
-#     cc_fees = total_price * 0.10
-#     total = total_price + tax + cc_fees
-#     print("00000000000000000",total)
-#     return {
-#         "total_amount": total
-#     }
-
 def calculate_total_fee(total_price, tax_percent, cc_fees_percent):
     total_price = float(total_price)
     tax_percent = float(tax_percent)
     cc_fees_percent = float(cc_fees_percent)
-
     tax_amount = total_price * (tax_percent / 100)
     cc_fee_amount = total_price * (cc_fees_percent / 100)
     total = total_price + tax_amount + cc_fee_amount
-
     return {"total_amount": total}
 
 
