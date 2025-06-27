@@ -806,21 +806,53 @@ def stripe_webhook(request):
 
 
 class PaymentSuccessAPIView(APIView):
+    
     def post(self, request):
-        client_value = request.data.get("payment_intent_id")
-
-        if not client_value:
+        payment_intent = request.data.get("payment_intent_id")
+        if not payment_intent:
             return Response({"error": "PaymentIntent ID is required"}, status=400)
 
-        # Remove client_secret suffix if present
-        payment_intent_id = client_value.split("_secret")[0]
+        # Remove _secret part from PaymentIntent if present
+        payment_intent_id = payment_intent.split("_secret")[0]
 
         try:
+            # Get the payment using the payment intent ID
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+
+            # Get the related booking
             booking = payment.booking
-            booking.status = 'confirmed'
+
+            # Update booking status to completed
+            booking.status = 'completed'
             booking.save()
 
+            # Optional: update payment status if needed
+            payment.status = 'succeeded'  # if your model has this field
+            payment.save()
+
             return Response({"success": True})
+
         except Payment.DoesNotExist:
             return Response({"error": "Payment not found"}, status=404)
+        
+        
+        
+        
+    # def post(self, request):
+    #     client_value = request.data.get("payment_intent_id")
+
+    #     if not client_value:
+    #         return Response({"error": "PaymentIntent ID is required"}, status=400)
+
+    #     # Remove client_secret suffix if present
+    #     payment_intent_id = client_value.split("_secret")[0]
+
+    #     try:
+    #         payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+    #         booking = payment.booking
+    #         booking.status = 'confirmed'
+    #         booking.save()
+
+    #         return Response({"success": True})
+    #     except Payment.DoesNotExist:
+    #         return Response({"error": "Payment not found"}, status=404)
