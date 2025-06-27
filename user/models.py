@@ -63,6 +63,7 @@ class Location(models.Model):
     website = models.URLField(max_length=100,blank=True, null=True )
     phone = models.CharField(max_length=15, unique=True)
     email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128,null=True)
     address_1 = models.TextField()
     address_2 = models.TextField(blank=True, null=True)
     address_3 = models.TextField(blank=True, null=True)

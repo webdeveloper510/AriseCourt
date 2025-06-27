@@ -28,7 +28,9 @@ urlpatterns = [
     path('check_court_availability/', CourtAvailabilityView.as_view(), name='check_court_availability'),
     path('stripe-webhook/', stripe_webhook, name='stripe-webhook'),
     path('create-checkout-session/', CreatePaymentIntentView.as_view(), name='create-checkout-session'),
-    path('payment-success/', PaymentSuccessAPIView.as_view(), name='payment-success')
+    path('payment-success/', PaymentSuccessAPIView.as_view(), name='payment-success'),
+    
+    path('location_login/', LocationLoginView.as_view(), name='location_login'),
     
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

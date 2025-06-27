@@ -650,7 +650,7 @@ class CourtAvailabilityView(APIView):
             result.append({
                 "court_id": court.id,
                 "court_number": court.court_number,
-                "price_per_hour": court.court_fee_hrs,  
+                "court_fee_hrs": court.court_fee_hrs,  
                 "start_time": court.start_time, 
                 "end_time": court.end_time, 
                 "is_booked": is_booked
@@ -838,23 +838,76 @@ class PaymentSuccessAPIView(APIView):
             return Response({"error": "Payment not found"}, status=404)
         
         
-        
-        
-    # def post(self, request):
-    #     client_value = request.data.get("payment_intent_id")
+class LocationLoginView(APIView):
+    def post(self, request):
+        email     = request.data.get("email")
+        password  = request.data.get("password")
+        court_id  = request.data.get("court_id")
 
-    #     if not client_value:
-    #         return Response({"error": "PaymentIntent ID is required"}, status=400)
+        # Get location
+        try:
+            location = Location.objects.get(email=email)
+        except Location.DoesNotExist:
+            return Response({"error": "Invalid email"}, status=400)
 
-    #     # Remove client_secret suffix if present
-    #     payment_intent_id = client_value.split("_secret")[0]
+        # Check password
+        if location.password != password:
+            return Response({"error": "Incorrect password"}, status=401)
 
-    #     try:
-    #         payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
-    #         booking = payment.booking
-    #         booking.status = 'confirmed'
-    #         booking.save()
+        # Get court
+        try:
+            court = Court.objects.get(id=court_id, location_id=location)
+        except Court.DoesNotExist:
+            return Response({"error": "Invalid court"}, status=400)
 
-    #         return Response({"success": True})
-    #     except Payment.DoesNotExist:
-    #         return Response({"error": "Payment not found"}, status=404)
+        # Default court time if not set
+        start_time = court.start_time or time(9, 0)
+        end_time = court.end_time or time(21, 0)
+
+        # Round current time to next hour
+        now = datetime.now()
+        if now.minute > 0:
+            now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        else:
+            now = now.replace(minute=0, second=0, microsecond=0)
+ 
+        today = date.today()
+        bookings = CourtBooking.objects.filter(court=court, booking_date=today)
+
+        slots = []
+        for i in range(4):
+            slot_start = now + timedelta(hours=i)
+            slot_end = slot_start + timedelta(hours=1)
+
+            # Don't show slots after court end time
+            if slot_end.time() > end_time:
+                break
+
+            # Check if this slot is booked
+            booked = None
+            for b in bookings:
+                b_start = datetime.combine(today, b.start_time)
+                b_end = datetime.combine(today, b.end_time)
+                if b_start <= slot_start < b_end:
+                    booked = b
+                    break
+
+            if booked:
+                slots.append({
+                    "code": i + 1,
+                    "court_id": court.id,
+                    "status": "BOOKED",
+                    "user_name": booked.user.first_name,
+                    "start_time": booked.start_time.strftime("%H:%M"),
+                    "end_time": booked.end_time.strftime("%H:%M")
+                })
+            else:
+                slots.append({
+                    "code": i + 1,
+                    "court_id": court.id,
+                    "status": "OPEN",
+                    "start_time": slot_start.strftime("%H:%M"),
+                    "end_time": slot_end.strftime("%H:%M")
+                })
+
+        return Response({"slots": slots}, status=200)
