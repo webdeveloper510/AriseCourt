@@ -189,6 +189,8 @@ def calculate_total_fee(total_price, tax_percent, cc_fees_percent):
             'cc_fees': round(cc_fee_amount, 2),
             'total': round(total_amount, 2)
         } 
+
+
 class CourtBookingSerializer(serializers.ModelSerializer):
     user = UserDataSerializer(read_only=True)
     court = CourtDataSerializer(read_only=True)

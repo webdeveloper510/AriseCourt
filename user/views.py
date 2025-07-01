@@ -129,8 +129,7 @@ class UserLoginView(APIView):
             if not user.is_verified:
                 return Response({
                     'code': "400",
-                    'message': 'Email not verified. Please verify your email before logging in.',
-                    # 'status_code': status.HTTP_403_FORBIDDEN
+                    'message': 'Email not verified. Please verify your email before logging in.'
                 }, status=status.HTTP_200_OK)
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
@@ -586,7 +585,7 @@ class ProfileView(APIView):
 
 class CourtAvailabilityView(APIView):
     
-     def post(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         location_id = request.data.get('location_id')
         booking_date = request.data.get('date')
         start_time = request.data.get('start_time')
@@ -611,49 +610,67 @@ class CourtAvailabilityView(APIView):
         result = []
 
         for court in courts:
-            # Base query
-            bookings = CourtBooking.objects.filter(
+            # Get all bookings for this court with status 'pending' or 'confirmed'
+            all_bookings = CourtBooking.objects.filter(
                 court=court,
                 status__in=['pending', 'confirmed']
             )
 
-            # Filter 1: Normal same-day bookings
-            same_day_bookings = bookings.filter(booking_date=date_obj)
+            # Filter: keep only confirmed OR pending with successful payment
+            valid_bookings = []
+            for booking in all_bookings:
+                if booking.status == 'confirmed':
+                    valid_bookings.append(booking)
+                elif booking.status == 'pending':
+                    # Check if booking has at least one successful payment
+                    if booking.booking_payments.filter(payment_status='successful').exists():
+                        valid_bookings.append(booking)
 
-            # Filter 2: Repeating bookings (booked for 6 months)
-            weekday = date_obj.weekday()  # Monday=0 ... Sunday=6
+            # Filter 1: Same-day bookings
+            same_day_bookings = [b for b in valid_bookings if b.booking_date == date_obj]
+
+            # Filter 2: Repeating bookings for 6 months
+            weekday = date_obj.weekday()
             six_months_back = date_obj - timedelta(weeks=26)
-
-            repeating_bookings = bookings.filter(
-                book_for_six_months=True,
-                booking_date__lte=date_obj,
-                booking_date__gte=six_months_back
-            )
-
             repeating_bookings = [
-                b for b in repeating_bookings
-                if b.booking_date.weekday() == weekday
+                b for b in valid_bookings
+                if b.book_for_six_months and six_months_back <= b.booking_date <= date_obj and b.booking_date.weekday() == weekday
             ]
 
-            # Combine all bookings to check time conflict
-            combined_bookings = list(same_day_bookings) + list(repeating_bookings)
+            # Combine bookings for conflict check
+            combined_bookings = same_day_bookings + repeating_bookings
 
+             # Check if time is blocked
             is_booked = False
-            if start_time_obj and end_time_obj:
-                for booking in combined_bookings:
+            for booking in combined_bookings:
+                if start_time_obj and end_time_obj:
                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
                         is_booked = True
                         break
-            else:
-                is_booked = bool(combined_bookings)
+                else:
+                    is_booked = True  # No time provided, just show if booked at all
+                    break
+
+            # Prepare list of paid bookings
+            paid_booking_info = []
+            for booking in combined_bookings:
+                paid_booking_info.append({
+                    "booking_id": booking.id,
+                    "user_id": booking.user.id,
+                    "booking_date": booking.booking_date,
+                    "start_time": booking.start_time,
+                    "end_time": booking.end_time,
+                    "status": booking.status
+                })
 
             result.append({
                 "court_id": court.id,
                 "court_number": court.court_number,
-                "court_fee_hrs": court.court_fee_hrs,  
-                "start_time": court.start_time, 
-                "end_time": court.end_time, 
-                "is_booked": is_booked
+                "court_fee_hrs": court.court_fee_hrs,
+                "start_time": court.start_time,
+                "end_time": court.end_time,
+                "is_booked": is_booked,
+                "paid_bookings": paid_booking_info  # ✅ added this
             })
 
         return Response({
@@ -661,60 +678,6 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
-    
-    
-    
-    
-    # def post(self, request, *args, **kwargs):
-    #     location_id = request.data.get('location_id')
-    #     booking_date = request.data.get('date')
-    #     start_time = request.data.get('start_time')
-    #     end_time = request.data.get('end_time')
-
-    #     if not (location_id and booking_date):
-    #         return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Parse date and time
-    #     try:
-    #         date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
-    #         if start_time and end_time:
-    #             start_time_obj = time.fromisoformat(start_time)
-    #             end_time_obj = time.fromisoformat(end_time)
-    #         else:
-    #             start_time_obj = None
-    #             end_time_obj = None
-    #     except ValueError:
-    #         return Response({"error": "Invalid date or time format."}, status=status.HTTP_400_BAD_REQUEST)
-
-    #     courts = Court.objects.filter(location_id=location_id)
-    #     result = []
-
-    #     for court in courts:
-    #         bookings = CourtBooking.objects.filter(
-    #             court=court,
-    #             booking_date=date_obj,
-    #             status__in=['pending', 'confirmed']
-    #         )
-
-    #         if start_time_obj and end_time_obj:
-    #             bookings = bookings.filter(
-    #                 start_time__lt=end_time_obj,
-    #                 end_time__gt=start_time_obj
-    #             )
-
-    #         is_booked = bookings.exists()
-
-    #         result.append({
-    #             "court_id": court.id,
-    #             "court_number": court.court_number,
-    #             "is_booked": is_booked
-    #         })
-
-    #     return Response({
-    #         "location_id": location_id,
-    #         "date": booking_date,
-    #         "courts": result
-    #     }, status=status.HTTP_200_OK)
 
 
 
