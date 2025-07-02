@@ -443,8 +443,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__phone']
 
-    
-    
     def list(self, request, *args, **kwargs):
         today = date.today()
         booking_type = request.query_params.get('type') 
@@ -452,7 +450,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
-        # Filter bookings based on user
         if request.user.is_superuser:
             bookings = CourtBooking.objects.all()
         else:
@@ -470,10 +467,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search) |
                 Q(user__phone__icontains=search) |
-                Q(booking_date__icontains=search) 
+                Q(booking_date__icontains=search)
             )
 
-        # Return based on filter
         if booking_type == 'past':
             bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
         else:
@@ -484,11 +480,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        # If pagination is not applied (e.g., pagination class is not set)
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
-        # serializer = self.get_serializer(filtered_bookings, many=True)
-        # return Response({'bookings': serializer.data})
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
@@ -505,17 +498,19 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
 
             duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
-            data['duration_time'] = duration  
+            data['duration_time'] = duration
 
         except:
             return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
 
-        # ✅ Overlap Check
+        # ✅ Block only if already booked with confirmed or paid
         if CourtBooking.objects.filter(
             court_id=court_id,
             booking_date=booking_date,
             start_time__lt=end_time,
             end_time__gt=start_time
+        ).filter(
+            Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
         ).exists():
             return Response({
                 "message": "Court is already booked for the selected time.",
@@ -524,12 +519,16 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
-
         user = request.user
 
-        # ✅ Admin user books without payment
-        if user.user_type == 1:
-            booking = serializer.save(user=user, payment_status='Paid', amount=0)
+        # ✅ Admin or SuperAdmin books without payment
+        if user.user_type in [0, 1]:  # SuperAdmin or Admin
+            booking = serializer.save(
+                user=user,
+                payment_status='Paid',
+                amount=0,
+                status='confirmed'  # Mark confirmed so it blocks the court
+            )
             MailUtils.booking_confirmation_mail(user, booking)
             return Response({
                 "message": "Booking successful for admin (no payment needed).",
@@ -541,14 +540,72 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         booking = serializer.save(user=user)
         MailUtils.booking_confirmation_mail(user, booking)
         return Response(serializer.data, status=201)
-    
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        data = request.data.copy()
+
+        court_id = data.get('court', instance.court.id)
+        booking_date = data.get('booking_date', instance.booking_date)
+        start = data.get('start_time', instance.start_time.strftime("%H:%M:%S"))
+        end = data.get('end_time', instance.end_time.strftime("%H:%M:%S"))
+
+        try:
+            start_time = datetime.strptime(start, "%H:%M:%S").time()
+            end_time = datetime.strptime(end, "%H:%M:%S").time()
+
+            if end_time <= start_time:
+                return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
+
+            duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
+            data['duration_time'] = duration
+
+        except:
+            return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
+
+        # ✅ Exclude current booking when checking for conflict
+        if CourtBooking.objects.filter(
+            court_id=court_id,
+            booking_date=booking_date,
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        ).filter(
+            Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+        ).exclude(id=instance.id).exists():
+            return Response({
+                "message": "Court is already booked for the selected time.",
+                "code": "409"
+            }, status=status.HTTP_409_CONFLICT)
+
+        serializer = self.get_serializer(instance, data=data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response({"message": "Court_bookings updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data},status=status.HTTP_200_OK)
+        return Response({
+            "message": "Court booking updated successfully.",
+            "status_code": status.HTTP_200_OK,
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+    
+
+    def destroy(self, request, *args, **kwargs):
+        booking = self.get_object()
+
+        # ✅ Allow only SuperAdmin (0) or Admin (1)
+        if request.user.user_type not in [0, 1]:
+            return Response(
+                {"message": "You do not have permission to delete this booking."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Optional: log or refund if needed here
+
+        booking.delete()
+        return Response(
+            {"message": "Court booking deleted successfully.", "status_code": status.HTTP_200_OK},
+            status=status.HTTP_200_OK
+        )
+
 
     
     
@@ -643,7 +700,7 @@ class ProfileView(APIView):
 
 
 class CourtAvailabilityView(APIView):
-    
+
     def post(self, request, *args, **kwargs):
         location_id = request.data.get('location_id')
         booking_date = request.data.get('date')
@@ -653,7 +710,6 @@ class CourtAvailabilityView(APIView):
         if not (location_id and booking_date):
             return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Parse date and time
         try:
             date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
             if start_time and end_time:
@@ -669,26 +725,28 @@ class CourtAvailabilityView(APIView):
         result = []
 
         for court in courts:
-            # Get all bookings for this court with status 'pending' or 'confirmed'
+            # Get all relevant bookings
             all_bookings = CourtBooking.objects.filter(
                 court=court,
                 status__in=['pending', 'confirmed']
-            )
+            ).select_related('user')
 
-            # Filter: keep only confirmed OR pending with successful payment
             valid_bookings = []
             for booking in all_bookings:
                 if booking.status == 'confirmed':
                     valid_bookings.append(booking)
                 elif booking.status == 'pending':
-                    # Check if booking has at least one successful payment
+                    # ✅ Consider if payment is successful
                     if booking.booking_payments.filter(payment_status='successful').exists():
                         valid_bookings.append(booking)
+                    # ✅ Or if booked by Admin or SuperAdmin
+                    elif booking.user.user_type in [0, 1]:
+                        valid_bookings.append(booking)
 
-            # Filter 1: Same-day bookings
+            # Same-day bookings
             same_day_bookings = [b for b in valid_bookings if b.booking_date == date_obj]
 
-            # Filter 2: Repeating bookings for 6 months
+            # Repeating bookings (same weekday in last 6 months)
             weekday = date_obj.weekday()
             six_months_back = date_obj - timedelta(weeks=26)
             repeating_bookings = [
@@ -696,10 +754,8 @@ class CourtAvailabilityView(APIView):
                 if b.book_for_six_months and six_months_back <= b.booking_date <= date_obj and b.booking_date.weekday() == weekday
             ]
 
-            # Combine bookings for conflict check
             combined_bookings = same_day_bookings + repeating_bookings
 
-             # Check if time is blocked
             is_booked = False
             for booking in combined_bookings:
                 if start_time_obj and end_time_obj:
@@ -707,20 +763,21 @@ class CourtAvailabilityView(APIView):
                         is_booked = True
                         break
                 else:
-                    is_booked = True  # No time provided, just show if booked at all
+                    is_booked = True
                     break
 
-            # Prepare list of paid bookings
-            paid_booking_info = []
-            for booking in combined_bookings:
-                paid_booking_info.append({
-                    "booking_id": booking.id,
-                    "user_id": booking.user.id,
-                    "booking_date": booking.booking_date,
-                    "start_time": booking.start_time,
-                    "end_time": booking.end_time,
-                    "status": booking.status
-                })
+            paid_booking_info = [
+                {
+                    "booking_id": b.id,
+                    "user_id": b.user.id,
+                    "booking_date": b.booking_date,
+                    "start_time": b.start_time,
+                    "end_time": b.end_time,
+                    "status": b.status,
+                    "booked_by_admin": b.user.user_type in [0, 1]  # Optional field
+                }
+                for b in combined_bookings
+            ]
 
             result.append({
                 "court_id": court.id,
@@ -729,7 +786,7 @@ class CourtAvailabilityView(APIView):
                 "start_time": court.start_time,
                 "end_time": court.end_time,
                 "is_booked": is_booked,
-                "paid_bookings": paid_booking_info  # ✅ added this
+                "paid_bookings": paid_booking_info
             })
 
         return Response({
@@ -737,6 +794,8 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
+
+
 
 
 
