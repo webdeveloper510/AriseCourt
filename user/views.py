@@ -710,6 +710,7 @@ class CourtAvailabilityView(APIView):
         if not (location_id and booking_date):
             return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Parse date and time
         try:
             date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
             if start_time and end_time:
@@ -725,68 +726,49 @@ class CourtAvailabilityView(APIView):
         result = []
 
         for court in courts:
-            # Get all relevant bookings
-            all_bookings = CourtBooking.objects.filter(
+            # Base query
+            bookings = CourtBooking.objects.filter(
                 court=court,
                 status__in=['pending', 'confirmed']
-            ).select_related('user')
+            )
 
-            valid_bookings = []
-            for booking in all_bookings:
-                if booking.status == 'confirmed':
-                    valid_bookings.append(booking)
-                elif booking.status == 'pending':
-                    # ✅ Consider if payment is successful
-                    if booking.booking_payments.filter(payment_status='successful').exists():
-                        valid_bookings.append(booking)
-                    # ✅ Or if booked by Admin or SuperAdmin
-                    elif booking.user.user_type in [0, 1]:
-                        valid_bookings.append(booking)
+            # Filter 1: Normal same-day bookings
+            same_day_bookings = bookings.filter(booking_date=date_obj)
 
-            # Same-day bookings
-            same_day_bookings = [b for b in valid_bookings if b.booking_date == date_obj]
-
-            # Repeating bookings (same weekday in last 6 months)
-            weekday = date_obj.weekday()
+            # Filter 2: Repeating bookings (booked for 6 months)
+            weekday = date_obj.weekday()  # Monday=0 ... Sunday=6
             six_months_back = date_obj - timedelta(weeks=26)
+
+            repeating_bookings = bookings.filter(
+                book_for_six_months=True,
+                booking_date__lte=date_obj,
+                booking_date__gte=six_months_back
+            )
+
             repeating_bookings = [
-                b for b in valid_bookings
-                if b.book_for_six_months and six_months_back <= b.booking_date <= date_obj and b.booking_date.weekday() == weekday
+                b for b in repeating_bookings
+                if b.booking_date.weekday() == weekday
             ]
 
-            combined_bookings = same_day_bookings + repeating_bookings
+            # Combine all bookings to check time conflict
+            combined_bookings = list(same_day_bookings) + list(repeating_bookings)
 
             is_booked = False
-            for booking in combined_bookings:
-                if start_time_obj and end_time_obj:
+            if start_time_obj and end_time_obj:
+                for booking in combined_bookings:
                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
                         is_booked = True
                         break
-                else:
-                    is_booked = True
-                    break
-
-            paid_booking_info = [
-                {
-                    "booking_id": b.id,
-                    "user_id": b.user.id,
-                    "booking_date": b.booking_date,
-                    "start_time": b.start_time,
-                    "end_time": b.end_time,
-                    "status": b.status,
-                    "booked_by_admin": b.user.user_type in [0, 1]  # Optional field
-                }
-                for b in combined_bookings
-            ]
+            else:
+                is_booked = bool(combined_bookings)
 
             result.append({
                 "court_id": court.id,
                 "court_number": court.court_number,
-                "court_fee_hrs": court.court_fee_hrs,
-                "start_time": court.start_time,
-                "end_time": court.end_time,
-                "is_booked": is_booked,
-                "paid_bookings": paid_booking_info
+                "court_fee_hrs": court.court_fee_hrs,  
+                "start_time": court.start_time, 
+                "end_time": court.end_time, 
+                "is_booked": is_booked
             })
 
         return Response({
