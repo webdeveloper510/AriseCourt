@@ -301,23 +301,54 @@ class CourtViewSet(viewsets.ModelViewSet):
     pagination_class = LargeResultsSetPagination
 
     def create(self, request, *args, **kwargs):
+        location_id = request.data.get("location_id")
+        court_number = request.data.get("court_number")
+
+        # Check if court with same number exists at the same location
+        if Court.objects.filter(location_id=location_id, court_number=court_number).exists():
+            return Response({
+                "message": "Court with this number already exists at the same location.",
+                "code": 400
+            }, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        return Response({"message": "Court created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data},status=status.HTTP_201_CREATED)
+        return Response({
+            "message": "Court created successfully.",
+            "code": 200,
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
+        location_id = request.data.get("location_id", instance.location_id.id)
+        court_number = request.data.get("court_number", instance.court_number)
+
+        # Check for duplicates excluding current instance
+        if Court.objects.filter(location_id=location_id, court_number=court_number).exclude(id=instance.id).exists():
+            return Response({
+                "message": "Another court with this number already exists at the same location.",
+                "code": 400
+            }, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response({"message": "Court updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data},status=status.HTTP_200_OK)
+        return Response({
+            "message": "Court updated successfully.",
+            "code": 200,
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({"message": "Court deleted successfully.","status_code": status.HTTP_200_OK},status=status.HTTP_200_OK)
+        return Response({
+            "message": "Court deleted successfully.",
+            "code": 200
+        }, status=status.HTTP_200_OK)
     
 
 
@@ -413,6 +444,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__phone']
 
     
+    
     def list(self, request, *args, **kwargs):
         today = date.today()
         booking_type = request.query_params.get('type') 
@@ -460,27 +492,54 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
+        court_id = data.get('court')
+        booking_date = data.get('booking_date')
         start = data.get('start_time')
         end = data.get('end_time')
 
         try:
-            start_time = datetime.strptime(start, "%H:%M:%S")
-            end_time = datetime.strptime(end, "%H:%M:%S")
+            start_time = datetime.strptime(start, "%H:%M:%S").time()
+            end_time = datetime.strptime(end, "%H:%M:%S").time()
 
             if end_time <= start_time:
                 return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
 
-            duration = str(end_time - start_time)
+            duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
             data['duration_time'] = duration  
 
         except:
             return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
 
+        # ✅ Overlap Check
+        if CourtBooking.objects.filter(
+            court_id=court_id,
+            booking_date=booking_date,
+            start_time__lt=end_time,
+            end_time__gt=start_time
+        ).exists():
+            return Response({
+                "message": "Court is already booked for the selected time.",
+                "code": "409"
+            }, status=status.HTTP_409_CONFLICT)
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
 
-        booking = serializer.save(user=request.user)
-        MailUtils.booking_confirmation_mail(request.user,booking)
+        user = request.user
+
+        # ✅ Admin user books without payment
+        if user.user_type == 1:
+            booking = serializer.save(user=user, payment_status='Paid', amount=0)
+            MailUtils.booking_confirmation_mail(user, booking)
+            return Response({
+                "message": "Booking successful for admin (no payment needed).",
+                "status_code": status.HTTP_201_CREATED,
+                "data": serializer.data
+            }, status=status.HTTP_201_CREATED)
+
+        # 🧾 Regular user booking
+        booking = serializer.save(user=user)
+        MailUtils.booking_confirmation_mail(user, booking)
         return Response(serializer.data, status=201)
     
     def update(self, request, *args, **kwargs):
