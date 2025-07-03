@@ -727,7 +727,7 @@ class CourtAvailabilityView(APIView):
             # Base query
             bookings = CourtBooking.objects.filter(
                 court=court,
-                status__in=['confirmed']
+                status__in=['pending','confirmed']
             )
 
             # Filter 1: Normal same-day bookings
@@ -872,11 +872,15 @@ class PaymentSuccessAPIView(APIView):
     
     def post(self, request):
         payment_intent = request.data.get("payment_intent_id")
+
+        print("@@@@@@@@@@@@@@@@@@", payment_intent)
         if not payment_intent:
             return Response({"error": "PaymentIntent ID is required"}, status=400)
 
         # Remove _secret part from PaymentIntent if present
         payment_intent_id = payment_intent.split("_secret")[0]
+
+
 
         try:
             # Get the payment using the payment intent ID
