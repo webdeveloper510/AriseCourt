@@ -525,8 +525,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         if user.user_type in [0, 1]:  # SuperAdmin or Admin
             booking = serializer.save(
                 user=user,
-                payment_status='Paid',
-                amount=0,
                 status='confirmed'  # Mark confirmed so it blocks the court
             )
             MailUtils.booking_confirmation_mail(user, booking)
@@ -887,6 +885,8 @@ class PaymentSuccessAPIView(APIView):
         try:
             # Get the payment using the payment intent ID
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
+
+            print("--===-=-=--=-=-=-=-=",payment)
 
             # Get the related booking
             booking = payment.booking
