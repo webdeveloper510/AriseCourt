@@ -309,7 +309,7 @@ class CourtViewSet(viewsets.ModelViewSet):
             return Response({
                 "message": "Court with this number already exists at the same location.",
                 "code": 400
-            }, status=status.HTTP_200_OK)
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -451,9 +451,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         end_date = request.query_params.get('end_date')
 
         if request.user.is_superuser:
-            bookings = CourtBooking.objects.all()
+            bookings = CourtBooking.objects.filter(booking_status='confirmed')
         else:
-            bookings = CourtBooking.objects.filter(user=request.user)
+             bookings = CourtBooking.objects.filter(user=request.user, booking_status='confirmed')
 
         if start_date and end_date:
             start = parse_date(start_date)
@@ -507,14 +507,14 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         if CourtBooking.objects.filter(
             court_id=court_id,
             booking_date=booking_date,
-            start_time__lt=end_time,
-            end_time__gt=start_time
+            start_time__lt=start_time,
+            end_time__gt=end_time
         ).filter(
             Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
         ).exists():
             return Response({
                 "message": "Court is already booked for the selected time.",
-                "code": "409"
+                "code": "400"
             }, status=status.HTTP_409_CONFLICT)
 
         serializer = self.get_serializer(data=data)
@@ -872,21 +872,15 @@ class PaymentSuccessAPIView(APIView):
     
     def post(self, request):
         payment_intent = request.data.get("payment_intent_id")
-        print("payment_intent",payment_intent)
         if not payment_intent:
             return Response({"error": "PaymentIntent ID is required"}, status=400)
 
         # Remove _secret part from PaymentIntent if present
         payment_intent_id = payment_intent.split("_secret")[0]
 
-
-        print("hascjkhklhjackljhk",payment_intent_id)
-
         try:
             # Get the payment using the payment intent ID
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
-
-            print("--===-=-=--=-=-=-=-=",payment)
 
             # Get the related booking
             booking = payment.booking
