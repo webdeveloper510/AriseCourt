@@ -15,6 +15,7 @@ from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
+from django.db.models import Sum
 from rest_framework.viewsets import ModelViewSet
 from django.utils.timezone import now
 import random
@@ -537,53 +538,29 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         # 🧾 Regular user booking
         booking = serializer.save(user=user)
         MailUtils.booking_confirmation_mail(user, booking)
-        return Response(serializer.data, status=201)
+        return Response({
+            "message": "Booking created successfully.",
+            "status_code": status.HTTP_201_CREATED,
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
+    
+
+
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', True)
+        partial = kwargs.pop('partial', False)
         instance = self.get_object()
-        data = request.data.copy()
-
-        court_id = data.get('court', instance.court.id)
-        booking_date = data.get('booking_date', instance.booking_date)
-        start = data.get('start_time', instance.start_time.strftime("%H:%M:%S"))
-        end = data.get('end_time', instance.end_time.strftime("%H:%M:%S"))
-
-        try:
-            start_time = datetime.strptime(start, "%H:%M:%S").time()
-            end_time = datetime.strptime(end, "%H:%M:%S").time()
-
-            if end_time <= start_time:
-                return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
-
-            duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
-            data['duration_time'] = duration
-
-        except:
-            return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
-
-        # ✅ Exclude current booking when checking for conflict
-        if CourtBooking.objects.filter(
-            court_id=court_id,
-            booking_date=booking_date,
-            start_time__lt=end_time,
-            end_time__gt=start_time
-        ).filter(
-            Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-        ).exclude(id=instance.id).exists():
-            return Response({
-                "message": "Court is already booked for the selected time.",
-                "code": "409"
-            }, status=status.HTTP_409_CONFLICT)
-
-        serializer = self.get_serializer(instance, data=data, partial=partial)
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
         return Response({
-            "message": "Court booking updated successfully.",
+            "message": "Booking updated successfully.",
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
+    
     
 
     def destroy(self, request, *args, **kwargs):
@@ -654,18 +631,20 @@ class ContactUsViewSet(viewsets.ModelViewSet):
 
 
 class StatsAPIView(APIView):
-
     def get(self, request):
-        total_users = User.objects.count()
+        total_users = User.objects.filter(is_staff=False, is_superuser=False).count()
         total_bookings = CourtBooking.objects.count()
         total_courts = Court.objects.count()
-        total_profit = 0
+
+        # ✅ Sum all successful payments
+        total_profit = Payment.objects.filter(payment_status='successful') \
+            .aggregate(total=Sum('amount'))['total'] or 0
 
         return Response({
             'total_users': total_users,
             'total_bookings': total_bookings,
             'total_courts': total_courts,
-            'total_profit': total_profit
+            'total_profit': f"${total_profit:.2f}"
         })
 
 
@@ -872,8 +851,6 @@ class PaymentSuccessAPIView(APIView):
     
     def post(self, request):
         payment_intent = request.data.get("payment_intent_id")
-
-        print("@@@@@@@@@@@@@@@@@@", payment_intent)
         if not payment_intent:
             return Response({"error": "PaymentIntent ID is required"}, status=400)
 
@@ -905,37 +882,41 @@ class PaymentSuccessAPIView(APIView):
         
 class LocationLoginView(APIView):
     def post(self, request):
-        email     = request.data.get("email")
-        password  = request.data.get("password")
-        court_id  = request.data.get("court_id")
+        email        = request.data.get("email")
+        password     = request.data.get("password")
+        court_id     = request.data.get("court_id")
+        location_id  = request.data.get("location_id")  # 👈 required in payload
 
-        # Get location
+        if not location_id:
+            return Response({"error": "location_id is required"}, status=400)
+
+        # Get location using ID and email
         try:
-            location = Location.objects.get(email=email)
+            location = Location.objects.get(id=location_id, email=email)
         except Location.DoesNotExist:
-            return Response({"error": "Invalid email"}, status=400)
+            return Response({"error": "Invalid email or location"}, status=400)
 
         # Check password
         if location.password != password:
             return Response({"error": "Incorrect password"}, status=401)
 
-        # Get court
+        # Get court belonging to location
         try:
             court = Court.objects.get(id=court_id, location_id=location)
         except Court.DoesNotExist:
-            return Response({"error": "Invalid court"}, status=400)
+            return Response({"error": "Invalid court for this location"}, status=400)
 
-        # Default court time if not set
+        # Default court times
         start_time = court.start_time or time(9, 0)
         end_time = court.end_time or time(21, 0)
 
-        # Round current time to next hour
+        # Round current time to the next hour
         now = datetime.now()
         if now.minute > 0:
             now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
         else:
             now = now.replace(minute=0, second=0, microsecond=0)
- 
+
         today = date.today()
         bookings = CourtBooking.objects.filter(court=court, booking_date=today)
 
@@ -944,11 +925,9 @@ class LocationLoginView(APIView):
             slot_start = now + timedelta(hours=i)
             slot_end = slot_start + timedelta(hours=1)
 
-            # Don't show slots after court end time
             if slot_end.time() > end_time:
                 break
 
-            # Check if this slot is booked
             booked = None
             for b in bookings:
                 b_start = datetime.combine(today, b.start_time)
@@ -961,6 +940,7 @@ class LocationLoginView(APIView):
                 slots.append({
                     "code": i + 1,
                     "court_id": court.id,
+                    "location_id": location.id,
                     "status": "BOOKED",
                     "user_name": booked.user.first_name,
                     "start_time": booked.start_time.strftime("%H:%M"),
@@ -970,9 +950,12 @@ class LocationLoginView(APIView):
                 slots.append({
                     "code": i + 1,
                     "court_id": court.id,
+                    "location_id": location.id,
                     "status": "OPEN",
                     "start_time": slot_start.strftime("%H:%M"),
                     "end_time": slot_end.strftime("%H:%M")
                 })
 
-        return Response({"slots": slots}, status=200)
+        return Response({"slots": slots, "location_id": location.id}, status=200)
+
+
