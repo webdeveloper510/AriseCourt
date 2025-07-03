@@ -451,9 +451,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         end_date = request.query_params.get('end_date')
 
         if request.user.is_superuser:
-            bookings = CourtBooking.objects.filter(status='confirmed')
+            bookings = CourtBooking.objects.all()
         else:
-             bookings = CourtBooking.objects.filter(user=request.user, status='confirmed')
+            bookings = CourtBooking.objects.filter(user=request.user)
 
         if start_date and end_date:
             start = parse_date(start_date)

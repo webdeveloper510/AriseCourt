@@ -243,9 +243,15 @@ class ContactUsSerializer(serializers.ModelSerializer):
 
 
 class CourtBookingDataSerializer(serializers.ModelSerializer):
+    description = serializers.SerializerMethodField()
     class Meta:
         model = CourtBooking
-        fields = ['booking_date', 'start_time', 'duration_time']
+        fields = ['booking_date', 'start_time', 'duration_time', 'total_price', 'description']
+
+    def get_description(self, obj):
+        if obj.court and obj.court.location_id:
+            return obj.court.location_id.description
+        return None
 
 
 
