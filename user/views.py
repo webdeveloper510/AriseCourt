@@ -632,7 +632,9 @@ class ContactUsViewSet(viewsets.ModelViewSet):
 
 class StatsAPIView(APIView):
     def get(self, request):
-        total_users = User.objects.filter(is_staff=False, is_superuser=False).count()
+        allowed_roles = [2, 3, 4]
+        total_users = User.objects.filter(user_type__in=allowed_roles).count()
+        # total_users = User.objects.filter(is_staff=False, is_superuser=False).count()
         total_bookings = CourtBooking.objects.count()
         total_courts = Court.objects.count()
 
@@ -885,7 +887,7 @@ class LocationLoginView(APIView):
         email        = request.data.get("email")
         password     = request.data.get("password")
         court_id     = request.data.get("court_id")
-        location_id  = request.data.get("location_id")  # 👈 required in payload
+        location_id  = request.data.get("location_id")
 
         if not location_id:
             return Response({"error": "location_id is required"}, status=400)
