@@ -727,7 +727,7 @@ class CourtAvailabilityView(APIView):
             # Base query
             bookings = CourtBooking.objects.filter(
                 court=court,
-                status__in=['pending','confirmed']
+                status__in=['pending', 'confirmed']
             )
 
             # Filter 1: Normal same-day bookings
