@@ -32,6 +32,7 @@ urlpatterns = [
     
     path('location_login/', LocationLoginView.as_view(), name='location_login'),
     path('my_location/', MyLocationView.as_view(), name='my-location'),
+    path('users_my_locations/', UsersInMyLocationView.as_view(), name='users-in-my-location'),
     
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

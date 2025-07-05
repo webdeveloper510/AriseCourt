@@ -918,23 +918,23 @@ class LocationLoginView(APIView):
         location_id  = request.data.get("location_id")
 
         if not location_id:
-            return Response({"error": "location_id is required"}, status=400)
+            return Response({"message": "location_id is required" ,"code": 400}, status=200)
 
         # Get location using ID and email
         try:
             location = Location.objects.get(id=location_id, email=email)
         except Location.DoesNotExist:
-            return Response({"error": "Invalid email or location"}, status=400)
+            return Response({"message": "Invalid email or location", "code": 400}, status=200)
 
         # Check password
         if location.password != password:
-            return Response({"error": "Incorrect password"}, status=401)
+            return Response({"message": "Incorrect password", "code": 400}, status=401)
 
         # Get court belonging to location
         try:
             court = Court.objects.get(id=court_id, location_id=location)
         except Court.DoesNotExist:
-            return Response({"error": "Invalid court for this location"}, status=400)
+            return Response({"message": "Invalid court for this location", "code": 400}, status=200)
 
         # Default court times
         start_time = court.start_time or time(9, 0)
@@ -1001,3 +1001,21 @@ class MyLocationView(APIView):
 
         serializer = LocationSerializer(user.location)
         return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class UsersInMyLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        current_user = request.user
+
+        # Check if current user has a location
+        if not current_user.location:
+            return Response({'error': 'You are not assigned to any location.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Get all users in the same location, excluding current user (optional)
+        users = User.objects.filter(location=current_user.location).exclude(id=current_user.id)
+
+        serializer = UserLoginFieldsSerializer(users, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
