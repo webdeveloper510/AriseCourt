@@ -991,3 +991,13 @@ class LocationLoginView(APIView):
         return Response({"slots": slots, "location_id": location.id}, status=200)
 
 
+class MyLocationView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user  # Get the user from the token
+        if not user.location:
+            return Response({'error': 'Location not assigned to user'}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = LocationSerializer(user.location)
+        return Response(serializer.data, status=status.HTTP_200_OK)

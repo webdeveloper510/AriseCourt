@@ -31,6 +31,7 @@ urlpatterns = [
     path('payment-success/', PaymentSuccessAPIView.as_view(), name='payment-success'),
     
     path('location_login/', LocationLoginView.as_view(), name='location_login'),
+    path('my_location/', MyLocationView.as_view(), name='my-location'),
     
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
