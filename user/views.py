@@ -276,18 +276,46 @@ class LocationViewSet(viewsets.ModelViewSet):
         return queryset
         
     def create(self, request, *args, **kwargs):
+        name = request.data.get('name')
+
+        # Check if a location with the same name exists (case insensitive)
+        if Location.objects.filter(name__iexact=name).exists():
+            return Response({
+                "message": "Location with this name already exists.",
+                "code": 400
+            }, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        return Response({"message": "Location created successfully.","status_code": status.HTTP_201_CREATED,"data": serializer.data},status=status.HTTP_201_CREATED)
+        return Response({
+            "message": "Location created successfully.",
+            "status_code": status.HTTP_201_CREATED,
+            "data": serializer.data
+        }, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', True)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        new_name = request.data.get('name')
+
+        if new_name:
+            name_locations = Location.objects.filter(name__iexact=new_name)
+            for loc in name_locations:
+                if loc.id != instance.id:
+                    return Response({
+                        "message": "Location with this name already exists.",
+                        "status_code": 400
+                    }, status=400)
+
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        return Response({"message": "Location updated successfully.","status_code": status.HTTP_200_OK,"data": serializer.data},status=status.HTTP_200_OK)
+
+        return Response({
+            "message": "Location updated Successfully.",
+            "status_code": 200,
+            "data": serializer.data
+        }, status=200)
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -634,7 +662,6 @@ class StatsAPIView(APIView):
     def get(self, request):
         allowed_roles = [2, 3, 4]
         total_users = User.objects.filter(user_type__in=allowed_roles).count()
-        # total_users = User.objects.filter(is_staff=False, is_superuser=False).count()
         total_bookings = CourtBooking.objects.count()
         total_courts = Court.objects.count()
 
@@ -648,6 +675,7 @@ class StatsAPIView(APIView):
             'total_courts': total_courts,
             'total_profit': f"${total_profit:.2f}"
         })
+
 
 
 
@@ -860,7 +888,6 @@ class PaymentSuccessAPIView(APIView):
         payment_intent_id = payment_intent.split("_secret")[0]
 
 
-
         try:
             # Get the payment using the payment intent ID
             payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
@@ -948,7 +975,9 @@ class LocationLoginView(APIView):
                     "start_time": booked.start_time.strftime("%H:%M"),
                     "end_time": booked.end_time.strftime("%H:%M")
                 })
+
             else:
+
                 slots.append({
                     "code": i + 1,
                     "court_id": court.id,
