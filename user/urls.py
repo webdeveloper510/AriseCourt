@@ -29,10 +29,10 @@ urlpatterns = [
     path('stripe-webhook/', stripe_webhook, name='stripe-webhook'),
     path('create-checkout-session/', CreatePaymentIntentView.as_view(), name='create-checkout-session'),
     path('payment-success/', PaymentSuccessAPIView.as_view(), name='payment-success'),
-    
     path('location_login/', LocationLoginView.as_view(), name='location_login'),
     path('my_location/', MyLocationView.as_view(), name='my-location'),
     path('users_my_locations/', UsersInMyLocationView.as_view(), name='users-in-my-location'),
+    path('get_booking_byadmin/', AdminCourtBookingListView.as_view(), name='admin-location-users'),
     
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

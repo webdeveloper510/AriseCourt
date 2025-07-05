@@ -27,6 +27,7 @@ from .utils import calculate_total_fee, calculate_duration
 import json
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, time
+from rest_framework.exceptions import PermissionDenied
 
 
 # Create your views here.
@@ -1019,3 +1020,28 @@ class UsersInMyLocationView(APIView):
         serializer = UserLoginFieldsSerializer(users, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+
+
+class AdminCourtBookingListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        admin = request.user
+
+        if admin.user_type != 1:
+            raise PermissionDenied("Only admins can access this data.")
+
+        if not admin.location:
+            return Response({
+                "message": "Admin is not assigned to any location.",
+                "status_code": 400
+            }, status=400)
+
+        bookings = CourtBooking.objects.filter(court__location_id=admin.location.id).select_related('court', 'user')
+
+        serializer = AdminCourtBookingSerializer(bookings, many=True)
+        return Response({
+            "message": "Court bookings fetched successfully.",
+            "status_code": 200,
+            "data": serializer.data
+        }, status=200)

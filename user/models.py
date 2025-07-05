@@ -59,6 +59,7 @@ class PasswordResetOTP(models.Model):
 class Location(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_locations', null=True)
     description = models.TextField()
+    name = models.CharField(max_length=125, null=True, unique=True)
     logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
     website = models.URLField(max_length=100,blank=True, null=True )
     phone = models.CharField(max_length=15, unique=True)
@@ -71,9 +72,11 @@ class Location(models.Model):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     country = models.CharField(max_length=100)
+    # is_booked = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True,null=True)
     updated_at = models.DateTimeField(auto_now=True,null=True)
-    name = models.CharField(max_length=125, null=True, unique=True)
+
+
 
 
 

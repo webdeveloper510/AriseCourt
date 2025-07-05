@@ -80,9 +80,10 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
     location_id = serializers.IntegerField(write_only=True)
+    location = serializers.IntegerField(source='location.id', read_only=True) 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone','location_id', 'user_type', 'password', 'created_at', 'updated_at','access_flag']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone','location_id','location','user_type', 'password', 'created_at', 'updated_at','access_flag']
         extra_kwargs = {
             'password': {'write_only': True},
             'user_type': {'default': 1}
@@ -309,3 +310,32 @@ class CourtBookingReportSerializer(serializers.ModelSerializer):
             end = datetime.combine(obj.booking_date, obj.end_time)
             return round((end - start).seconds / 3600, 2)
         return None
+    
+
+
+
+class AdminCourtBookingSerializer(serializers.ModelSerializer):
+    court_number = serializers.CharField(source='court.court_number', read_only=True)
+    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_phone = serializers.CharField(source='user.phone', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    user_type = serializers.IntegerField(source='user.user_type', read_only=True)
+    location_name = serializers.CharField(source='court.location_id.name', read_only=True)
+
+    class Meta:
+        model = CourtBooking
+        fields = [
+            'id',
+            'booking_date',
+            'start_time',
+            'end_time',
+            'duration_time',
+            'total_price',
+            'status',
+            'court_number',
+            'user_name',
+            'user_phone',
+            'user_email',
+            'user_type',
+            'location_name'
+        ]
