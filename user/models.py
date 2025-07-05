@@ -38,7 +38,7 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     verified_otp = models.CharField(max_length=6, null=True, blank=True)
-    location = models.ForeignKey('Location', on_delete=models.CASCADE)
+    location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='assigned_users')
 
     objects = CustomUserManager()
 
@@ -57,7 +57,7 @@ class PasswordResetOTP(models.Model):
     
 
 class Location(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='managed_locations')
     description = models.TextField()
     logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
     website = models.URLField(max_length=100,blank=True, null=True )

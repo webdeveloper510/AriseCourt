@@ -14,13 +14,14 @@ from datetime import datetime, timedelta
 
 class UserSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
+    location_id = serializers.IntegerField(write_only=True)
     class Meta:
         model = User
         fields = '__all__'
         extra_kwargs = {
-            'password': {'write_only': True}
+            'password': {'write_only': True},
+            'location': {'read_only': True} 
         }
-
 
 
     def validate_first_name(self, value):
@@ -54,10 +55,14 @@ class UserSerializer(serializers.ModelSerializer):
         return data
     
     def create(self, validated_data):
-        validated_data.pop('confirm_password')  
-        password = validated_data.pop('password') 
+        validated_data.pop('confirm_password')
+        password = validated_data.pop('password')
+        location_id = validated_data.pop('location_id')
+
+        # ✅ Set location using ID directly
         user = User(**validated_data)
-        user.set_password(password) 
+        user.location_id = location_id
+        user.set_password(password)
         user.save()
         return user
 
@@ -74,9 +79,10 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
 
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
+    location_id = serializers.IntegerField(write_only=True)
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type', 'password', 'created_at', 'updated_at','access_flag']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone','location_id', 'user_type', 'password', 'created_at', 'updated_at','access_flag']
         extra_kwargs = {
             'password': {'write_only': True},
             'user_type': {'default': 1}
@@ -84,7 +90,10 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         password = validated_data.pop('password')
+        location_id = validated_data.pop('location_id')
+
         user = User(**validated_data)
+        user.location_id = location_id 
         user.set_password(password)
         user.save()
         return user
