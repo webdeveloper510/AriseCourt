@@ -129,9 +129,9 @@ class UserLoginView(APIView):
         if user is not None:
             if not user.is_verified:
                 return Response({
-                    'code': "400",
-                    'message': 'Email not verified. Please verify your email before logging in.'
-                }, status=status.HTTP_200_OK)
+                    'message': 'Email not verified. Please verify your email before logging in.',
+                    'status_code': status.HTTP_403_FORBIDDEN
+                }, status=status.HTTP_403_FORBIDDEN)
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
             user_data['access_token'] = token['access']

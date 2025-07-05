@@ -14,6 +14,24 @@ class BaseModel(models.Model):
 
     
 
+class Location(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    description = models.TextField()
+    logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
+    website = models.URLField(max_length=100,blank=True, null=True )
+    phone = models.CharField(max_length=15, unique=True)
+    email = models.EmailField(unique=True)
+    password = models.CharField(max_length=128,null=True)
+    address_1 = models.TextField()
+    address_2 = models.TextField(blank=True, null=True)
+    address_3 = models.TextField(blank=True, null=True)
+    address_4 = models.TextField(blank=True, null=True)
+    city = models.CharField(max_length=100)
+    state = models.CharField(max_length=100)
+    country = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True,null=True)
+    updated_at = models.DateTimeField(auto_now=True,null=True)
+    name = models.CharField(max_length=125, null=True, unique=True)
 
 
 class User(BaseModel,AbstractBaseUser, PermissionsMixin):
@@ -38,6 +56,7 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     verified_otp = models.CharField(max_length=6, null=True, blank=True)
+    location_id = models.ForeignKey(Location, on_delete=models.CASCADE)
 
     objects = CustomUserManager()
 
@@ -56,24 +75,6 @@ class PasswordResetOTP(models.Model):
     
 
 
-class Location(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    description = models.TextField()
-    logo = models.ImageField(upload_to='logo_image', null=True, blank=True)
-    website = models.URLField(max_length=100,blank=True, null=True )
-    phone = models.CharField(max_length=15, unique=True)
-    email = models.EmailField(unique=True)
-    password = models.CharField(max_length=128,null=True)
-    address_1 = models.TextField()
-    address_2 = models.TextField(blank=True, null=True)
-    address_3 = models.TextField(blank=True, null=True)
-    address_4 = models.TextField(blank=True, null=True)
-    city = models.CharField(max_length=100)
-    state = models.CharField(max_length=100)
-    country = models.CharField(max_length=100)
-    created_at = models.DateTimeField(auto_now_add=True,null=True)
-    updated_at = models.DateTimeField(auto_now=True,null=True)
-    name = models.CharField(max_length=125, null=True, unique=True)
 
 
 
