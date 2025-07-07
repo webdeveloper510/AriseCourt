@@ -1006,6 +1006,8 @@ class LocationLoginView(APIView):
                     "code": i + 1,
                     "court_id": court.id,
                     "location_id": court.location_id.id,
+                    "court_number":court.court_number,
+                    "booking_date":bookings.booking_date,
                     "status": "BOOKED",
                     "user_name": booked.user.first_name,
                     "start_time": booked.start_time.strftime("%H:%M"),
@@ -1140,6 +1142,23 @@ class AdminCourtBookingListView(APIView):
 class GetLocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
+
+
+    def get_queryset(self):
+        # Return only unassigned locations
+        queryset = Location.objects.filter(status=False)
+
+        # Optional filter by date
+        start_date = self.request.query_params.get('start_date')
+        end_date = self.request.query_params.get('end_date')
+
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                queryset = queryset.filter(created_at__date__range=(start, end))
+
+        return queryset
 
 
 class BookedLocationDropdownView(APIView):
