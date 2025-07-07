@@ -260,7 +260,9 @@ class PasswordResetConfirmView(APIView):
 
 
 class LocationViewSet(viewsets.ModelViewSet):
-    queryset = Location.objects.all()
+    # queryset = Location.objects.all()
+    queryset = Location.objects.filter(status=False)  # ✅ Only unassigned locations
+
     serializer_class = LocationSerializer
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
@@ -315,6 +317,7 @@ class LocationViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response({"message": "Location deleted successfully.","status_code": status.HTTP_200_OK},status=status.HTTP_200_OK)
+ 
 
 
 
@@ -428,6 +431,10 @@ class AdminViewSet(viewsets.ModelViewSet):
 
         user.is_verified = True
         user.save()
+
+        if user.location:
+            Location.objects.filter(id=user.location.id).update(status=True)
+
 
         AdminPermission.objects.create(user=user, access_flag=str(access_flag))
 
