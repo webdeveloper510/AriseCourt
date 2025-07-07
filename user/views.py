@@ -279,15 +279,6 @@ class LocationViewSet(viewsets.ModelViewSet):
         return queryset
         
     def create(self, request, *args, **kwargs):
-        name = request.data.get('name')
-
-        # Check if a location with the same name exists (case insensitive)
-        if Location.objects.filter(name__iexact=name).exists():
-            return Response({
-                "message": "Location with this name already exists.",
-                "code": 400
-            }, status=status.HTTP_200_OK)
-
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)

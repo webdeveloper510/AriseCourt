@@ -170,7 +170,7 @@ class UserDataSerializer(serializers.ModelSerializer):
 class LocationDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
-        fields = ['description', 'address_1', 'address_2', 'address_3', 'address_4', 'city', 'state', 'country']
+        fields = ['description', 'address_1', 'address_2', 'address_3', 'address_4','name', 'city', 'state', 'country']
 
 
 
