@@ -176,10 +176,11 @@ class LocationDataSerializer(serializers.ModelSerializer):
 
 class CourtDataSerializer(serializers.ModelSerializer):
     location = LocationDataSerializer(source='location_id', read_only=True)
+    court_id = serializers.IntegerField(source='id', read_only=True)
 
     class Meta:
         model = Court
-        fields = ['court_number', 'court_fee_hrs', 'tax', 'cc_fees', 'availability', 'location']
+        fields = ['court_id','court_number', 'court_fee_hrs', 'tax', 'cc_fees', 'availability', 'location']
 
 
 
@@ -217,26 +218,42 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'amount', 'tax', 'cc_fees', 'summary'
         ]
-        
-    
-       
        
     def get_amount(self, obj):
-        return float(obj.total_price)
+        try:
+            return float(obj.total_price or 0)
+        except (ValueError, TypeError):
+            return 0
 
     def get_tax(self, obj):
-        tax_percent = float(obj.court.tax)
-        data = calculate_total_fee(obj.total_price, tax_percent, obj.court.cc_fees)
-        return f"{data['tax']} ({tax_percent}%)"
+        try:
+            total_price = float(obj.total_price or 0)
+            tax_percent = float(getattr(obj.court, 'tax', 0) or 0)
+            cc_percent = float(getattr(obj.court, 'cc_fees', 0) or 0)
+            data = calculate_total_fee(total_price, tax_percent, cc_percent)
+            return f"{data['tax']} ({tax_percent}%)"
+        except (ValueError, TypeError, AttributeError):
+            return "0 (0%)"
 
     def get_cc_fees(self, obj):
-        cc_fees_percent = float(obj.court.cc_fees)
-        data = calculate_total_fee(obj.total_price, obj.court.tax, cc_fees_percent)
-        return f"{data['cc_fees']} ({cc_fees_percent}%)"
+        try:
+            total_price = float(obj.total_price or 0)
+            tax_percent = float(getattr(obj.court, 'tax', 0) or 0)
+            cc_percent = float(getattr(obj.court, 'cc_fees', 0) or 0)
+            data = calculate_total_fee(total_price, tax_percent, cc_percent)
+            return f"{data['cc_fees']} ({cc_percent}%)"
+        except (ValueError, TypeError, AttributeError):
+            return "0 (0%)"
 
     def get_summary(self, obj):
-        data = calculate_total_fee(obj.total_price, obj.court.tax, obj.court.cc_fees)
-        return data['total']    
+        try:
+            total_price = float(obj.total_price or 0)
+            tax_percent = float(getattr(obj.court, 'tax', 0) or 0)
+            cc_percent = float(getattr(obj.court, 'cc_fees', 0) or 0)
+            data = calculate_total_fee(total_price, tax_percent, cc_percent)
+            return data['total']
+        except (ValueError, TypeError, AttributeError):
+            return 0
     
 
 

@@ -29,6 +29,8 @@ from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, time
 from rest_framework.exceptions import PermissionDenied
 
+from rest_framework.exceptions import ValidationError
+
 
 # Create your views here.
 
@@ -405,6 +407,22 @@ class AdminViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        location_id = request.data.get("location_id")
+
+        if location_id:
+            existing_admin = User.objects.filter(
+                user_type=1,  # Admin
+                location_id=location_id
+            ).exists()
+
+            if existing_admin:
+                # Check location status
+                location = Location.objects.filter(id=location_id, status=True).first()
+                if location:
+                    return Response({
+                        "message": "This location is already assigned to another admin.",
+                        "code": 400
+                    }, status=status.HTTP_200_OK)
 
         access_flag = request.data.get("access_flag", None)
 
@@ -435,6 +453,24 @@ class AdminViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
 
+        # 🔒 Check if the new location is already assigned to another admin
+        location_id = request.data.get("location_id")
+        if location_id and str(instance.location_id) != str(location_id):
+            # Only restrict if the location is active (status=True)
+            conflict_location = Location.objects.filter(id=location_id, status=True).first()
+
+            if conflict_location:
+                location_conflict = User.objects.filter(
+                    user_type=1,
+                    location_id=location_id
+                ).exclude(id=instance.id).exists()
+
+                if location_conflict:
+                    return Response({
+                        "message": "This location is already assigned to another admin.",
+                        "code": 400
+                    }, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -458,6 +494,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -1025,6 +1062,7 @@ class UsersInMyLocationView(APIView):
 class AdminCourtBookingListView(APIView):
     permission_classes = [IsAuthenticated]
 
+
     def get(self, request):
         admin = request.user
 
@@ -1037,11 +1075,55 @@ class AdminCourtBookingListView(APIView):
                 "status_code": 400
             }, status=400)
 
-        bookings = CourtBooking.objects.filter(court__location_id=admin.location.id).select_related('court', 'user')
+        status_param = request.query_params.get('status')  # 'past' or empty
+        now = timezone.now()
 
-        serializer = AdminCourtBookingSerializer(bookings, many=True)
+        bookings = CourtBooking.objects.filter(
+            court__location_id=admin.location.id
+        ).select_related('court', 'user')
+
+        if status_param == 'past':
+            bookings = bookings.filter(
+                booking_date__lt=now.date()
+            ) | bookings.filter(
+                booking_date=now.date(),
+                end_time__lt=now.time()
+            )
+        else:
+            # Default: upcoming
+            bookings = bookings.filter(
+                booking_date__gt=now.date()
+            ) | bookings.filter(
+                booking_date=now.date(),
+                end_time__gte=now.time()
+            )
+
+        serializer = AdminCourtBookingSerializer(bookings.order_by('booking_date', 'start_time'), many=True)
         return Response({
             "message": "Court bookings fetched successfully.",
             "status_code": 200,
             "data": serializer.data
         }, status=200)
+    
+
+
+    # def get(self, request):
+    #     admin = request.user
+
+    #     if admin.user_type != 1:
+    #         raise PermissionDenied("Only admins can access this data.")
+
+    #     if not admin.location:
+    #         return Response({
+    #             "message": "Admin is not assigned to any location.",
+    #             "status_code": 400
+    #         }, status=400)
+
+    #     bookings = CourtBooking.objects.filter(court__location_id=admin.location.id).select_related('court', 'user')
+
+    #     serializer = AdminCourtBookingSerializer(bookings, many=True)
+    #     return Response({
+    #         "message": "Court bookings fetched successfully.",
+    #         "status_code": 200,
+    #         "data": serializer.data
+    #     }, status=200)
