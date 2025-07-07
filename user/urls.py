@@ -8,6 +8,7 @@ from django.conf.urls.static import static
 
 router = DefaultRouter()
 router.register(r'locations', LocationViewSet, basename='location')
+router.register(r'get_locations_byAdmin', GetLocationViewSet, basename='get-location_byAdmin')
 router.register(r'courts', CourtViewSet, basename='court')
 router.register(r'create_admin', AdminViewSet, basename='create-Admin')
 router.register(r'court-bookings', CourtBookingViewSet, basename='booking')

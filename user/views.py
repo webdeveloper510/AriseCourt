@@ -1127,3 +1127,9 @@ class AdminCourtBookingListView(APIView):
     #         "status_code": 200,
     #         "data": serializer.data
     #     }, status=200)
+
+
+
+    class GetLocationViewSet(viewsets.ModelViewSet):
+        queryset = Location.objects.all()
+        serializer_class = LocationSerializer
