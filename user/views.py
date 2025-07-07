@@ -1130,6 +1130,6 @@ class AdminCourtBookingListView(APIView):
 
 
 
-    class GetLocationViewSet(viewsets.ModelViewSet):
-        queryset = Location.objects.all()
-        serializer_class = LocationSerializer
+class GetLocationViewSet(viewsets.ModelViewSet):
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
