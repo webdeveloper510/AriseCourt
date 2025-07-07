@@ -11,6 +11,7 @@ from datetime import datetime
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.views import View
+from django.contrib.auth.hashers import check_password
 from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -954,30 +955,29 @@ class LocationLoginView(APIView):
         court_id     = request.data.get("court_id")
         location_id  = request.data.get("location_id")
 
-        if not location_id:
-            return Response({"message": "location_id is required" ,"code": 400}, status=200)
+        if not (email and password and location_id):
+            return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=400)
 
-        # Get location using ID and email
+        # Get user by email and location
         try:
-            location = Location.objects.get(id=location_id, email=email)
-        except Location.DoesNotExist:
-            return Response({"message": "Invalid email or location", "code": 400}, status=200)
+            user = User.objects.get(email=email, location_id=location_id)
+        except User.DoesNotExist:
+            return Response({"message": "Invalid email or location.", "code": 400}, status=400)
 
         # Check password
-        if location.password != password:
-            return Response({"message": "Incorrect password", "code": 400}, status=401)
+        if not check_password(password, user.password):
+            return Response({"message": "Incorrect password.", "code": 401}, status=401)
 
         # Get court belonging to location
         try:
-            court = Court.objects.get(id=court_id, location_id=location)
+            court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
-            return Response({"message": "Invalid court for this location", "code": 400}, status=200)
+            return Response({"message": "Invalid court for this location.", "code": 400}, status=400)
 
-        # Default court times
+        # Set time slots logic
         start_time = court.start_time or time(9, 0)
         end_time = court.end_time or time(21, 0)
 
-        # Round current time to the next hour
         now = datetime.now()
         if now.minute > 0:
             now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
@@ -1007,25 +1007,24 @@ class LocationLoginView(APIView):
                 slots.append({
                     "code": i + 1,
                     "court_id": court.id,
-                    "location_id": location.id,
+                    "location_id": court.location_id.id,
                     "status": "BOOKED",
                     "user_name": booked.user.first_name,
                     "start_time": booked.start_time.strftime("%H:%M"),
                     "end_time": booked.end_time.strftime("%H:%M")
                 })
-
             else:
-
                 slots.append({
                     "code": i + 1,
                     "court_id": court.id,
-                    "location_id": location.id,
+                    "location_id": court.location_id.id,
                     "status": "OPEN",
                     "start_time": slot_start.strftime("%H:%M"),
                     "end_time": slot_end.strftime("%H:%M")
                 })
 
-        return Response({"slots": slots, "location_id": location.id}, status=200)
+        return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
+
 
 
 class MyLocationView(APIView):
@@ -1096,11 +1095,10 @@ class AdminCourtBookingListView(APIView):
         # Apply search filter
         if search:
             bookings = bookings.filter(
-                Q(user__first_name__icontains=search) |
-                Q(user__last_name__icontains=search) |
-                Q(user__email__icontains=search) |
-                Q(user__phone__icontains=search) |
-                Q(court__court_number__icontains=search)
+                Q(court__location_id__address_1__icontains=search) |
+                Q(court__location_id__address_2__icontains=search) |
+                Q(court__location_id__address_3__icontains=search) |
+                Q(court__location_id__address_4__icontains=search)
             )
 
         bookings = bookings.order_by('booking_date', 'start_time')
@@ -1145,3 +1143,11 @@ class GetLocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
 
+
+class BookedLocationDropdownView(APIView):
+    def get(self, request):
+        # Get locations that have at least one booking
+        booked_location_ids = CourtBooking.objects.values_list('court__location_id', flat=True).distinct()
+        locations = Location.objects.filter(id__in=booked_location_ids)
+        serializer = LocationSerializer(locations, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)

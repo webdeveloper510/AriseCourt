@@ -35,6 +35,7 @@ urlpatterns = [
     path('my_location/', MyLocationView.as_view(), name='my-location'),
     path('users_my_locations/', UsersInMyLocationView.as_view(), name='users-in-my-location'),
     path('get_booking_byadmin/', AdminCourtBookingListView.as_view(), name='admin-location-users'),
+    path('booked-locations/', BookedLocationDropdownView.as_view(), name='booked-locations-dropdown'),
     
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
