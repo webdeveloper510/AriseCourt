@@ -28,7 +28,6 @@ import json
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, time
 from rest_framework.exceptions import PermissionDenied
-
 from rest_framework.exceptions import ValidationError
 
 
@@ -1062,7 +1061,6 @@ class UsersInMyLocationView(APIView):
 class AdminCourtBookingListView(APIView):
     permission_classes = [IsAuthenticated]
 
-
     def get(self, request):
         admin = request.user
 
@@ -1076,34 +1074,47 @@ class AdminCourtBookingListView(APIView):
             }, status=400)
 
         status_param = request.query_params.get('status')  # 'past' or empty
+        search = request.query_params.get('search')  # e.g., user name, email, court number
         now = timezone.now()
 
         bookings = CourtBooking.objects.filter(
             court__location_id=admin.location.id
         ).select_related('court', 'user')
 
+        # Apply status filter
         if status_param == 'past':
             bookings = bookings.filter(
-                booking_date__lt=now.date()
-            ) | bookings.filter(
-                booking_date=now.date(),
-                end_time__lt=now.time()
+                Q(booking_date__lt=now.date()) |
+                Q(booking_date=now.date(), end_time__lt=now.time())
             )
         else:
-            # Default: upcoming
             bookings = bookings.filter(
-                booking_date__gt=now.date()
-            ) | bookings.filter(
-                booking_date=now.date(),
-                end_time__gte=now.time()
+                Q(booking_date__gt=now.date()) |
+                Q(booking_date=now.date(), end_time__gte=now.time())
             )
 
-        serializer = AdminCourtBookingSerializer(bookings.order_by('booking_date', 'start_time'), many=True)
-        return Response({
+        # Apply search filter
+        if search:
+            bookings = bookings.filter(
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__phone__icontains=search) |
+                Q(court__court_number__icontains=search)
+            )
+
+        bookings = bookings.order_by('booking_date', 'start_time')
+
+        # Apply pagination
+        paginator = LargeResultsSetPagination()
+        page = paginator.paginate_queryset(bookings, request)
+        serializer = AdminCourtBookingSerializer(page, many=True)
+
+        return paginator.get_paginated_response({
             "message": "Court bookings fetched successfully.",
             "status_code": 200,
             "data": serializer.data
-        }, status=200)
+        })
     
 
 
@@ -1133,3 +1144,4 @@ class AdminCourtBookingListView(APIView):
 class GetLocationViewSet(viewsets.ModelViewSet):
     queryset = Location.objects.all()
     serializer_class = LocationSerializer
+

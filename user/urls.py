@@ -14,6 +14,7 @@ router.register(r'create_admin', AdminViewSet, basename='create-Admin')
 router.register(r'court-bookings', CourtBookingViewSet, basename='booking')
 router.register(r'contact-us', ContactUsViewSet, basename='contactus')
 
+
 urlpatterns = [
     path('', include(router.urls)),
     path('register/', UserCreateView.as_view(), name="register"),
