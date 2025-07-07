@@ -1045,15 +1045,16 @@ class UsersInMyLocationView(APIView):
     def get(self, request):
         current_user = request.user
 
-        # Check if current user has a location
         if not current_user.location:
             return Response({'error': 'You are not assigned to any location.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Get all users in the same location, excluding current user (optional)
         users = User.objects.filter(location=current_user.location).exclude(id=current_user.id)
 
-        serializer = UserLoginFieldsSerializer(users, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        paginator = LargeResultsSetPagination()
+        paginated_users = paginator.paginate_queryset(users, request)
+        serializer = UserLoginFieldsSerializer(paginated_users, many=True)
+
+        return paginator.get_paginated_response(serializer.data)
 
 
 
