@@ -398,54 +398,112 @@ class AdminViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(created_at__date__range=[start, end])
         return queryset
 
-    def create(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        location_id = request.data.get("location_id")
+    # def create(self, request, *args, **kwargs):
+    #     serializer = self.get_serializer(data=request.data)
+    #     serializer.is_valid(raise_exception=True)
+    #     location_id = request.data.get("location_id")
 
-        if location_id:
-            existing_admin = User.objects.filter(
-                user_type=1,  # Admin
-                location_id=location_id
-            ).exists()
+    #     if location_id:
+    #         existing_admin = User.objects.filter(
+    #             user_type=1,  # Admin
+    #             location_id=location_id
+    #         ).exists()
 
-            if existing_admin:
-                # Check location status
-                location = Location.objects.filter(id=location_id, status=True).first()
-                if location:
-                    return Response({
-                        "message": "This location is already assigned to another admin.",
-                        "code": 400
-                    }, status=status.HTTP_200_OK)
+    #         if existing_admin:
+    #             # Check location status
+    #             location = Location.objects.filter(id=location_id, status=True).first()
+    #             if location:
+    #                 return Response({
+    #                     "message": "This location is already assigned to another admin.",
+    #                     "code": 400
+    #                 }, status=status.HTTP_200_OK)
 
-        access_flag = request.data.get("access_flag", None)
+    #     access_flag = request.data.get("access_flag", None)
 
-        if access_flag is None:
+    #     if access_flag is None:
+    #         return Response({
+    #             "message": "Missing Permission.",
+    #             "status_code": status.HTTP_400_BAD_REQUEST,
+    #         }, status=status.HTTP_400_BAD_REQUEST)
+
+    #     self.perform_create(serializer)
+    #     user = serializer.instance
+
+    #     user.is_verified = True
+    #     user.save()
+
+    #     if user.location:
+    #         Location.objects.filter(id=user.location.id).update(status=True)
+
+
+    #     AdminPermission.objects.create(user=user, access_flag=str(access_flag))
+
+    #     response_data = serializer.data
+    #     response_data['access_flag'] = str(access_flag)
+
+    #     return Response({
+    #         "message": "Admin created successfully.",
+    #         "status_code": status.HTTP_201_CREATED,
+    #         "data": response_data
+    #     }, status=status.HTTP_201_CREATED)
+
+
+    def get(self, request):
+        admin = request.user
+
+        if admin.user_type != 1:
+            raise PermissionDenied("Only admins can access this data.")
+
+        if not admin.location:
             return Response({
-                "message": "Missing Permission.",
-                "status_code": status.HTTP_400_BAD_REQUEST,
-            }, status=status.HTTP_400_BAD_REQUEST)
+                "message": "Admin is not assigned to any location.",
+                "status_code": 400
+            }, status=400)
 
-        self.perform_create(serializer)
-        user = serializer.instance
+        status_param = request.query_params.get('status')  # 'past' or empty
+        search = request.query_params.get('search')  # e.g., user name, email, court number
+        now = timezone.now()
 
-        user.is_verified = True
-        user.save()
+        bookings = CourtBooking.objects.filter(
+            court__location_id=admin.location.id
+        ).select_related('court', 'user')
 
-        if user.location:
-            Location.objects.filter(id=user.location.id).update(status=True)
+        # Apply status filter
+        if status_param == 'past':
+            bookings = bookings.filter(
+                Q(booking_date__lt=now.date()) |
+                Q(booking_date=now.date(), end_time__lt=now.time())
+            )
+        else:
+            bookings = bookings.filter(
+                Q(booking_date__gt=now.date()) |
+                Q(booking_date=now.date(), end_time__gte=now.time())
+            )
 
+        # Apply search filter
+        if search:
+            bookings = bookings.filter(
+                Q(court__location_id__address_1__icontains=search) |
+                Q(court__location_id__address_2__icontains=search) |
+                Q(court__location_id__address_3__icontains=search) |
+                Q(court__location_id__address_4__icontains=search)
+            )
 
-        AdminPermission.objects.create(user=user, access_flag=str(access_flag))
+        bookings = bookings.order_by('booking_date', 'start_time')
 
-        response_data = serializer.data
-        response_data['access_flag'] = str(access_flag)
+        # Apply pagination
+        paginator = LargeResultsSetPagination()
+        page = paginator.paginate_queryset(bookings, request)
+        serializer = AdminCourtBookingSerializer(page, many=True)
 
         return Response({
-            "message": "Admin created successfully.",
-            "status_code": status.HTTP_201_CREATED,
-            "data": response_data
-        }, status=status.HTTP_201_CREATED)
+            "count": paginator.page.paginator.count,
+            "next": paginator.get_next_link(),
+            "previous": paginator.get_previous_link(),
+            "message": "Court bookings fetched successfully.",
+            "status_code": 200,
+            "results": serializer.data
+        })
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
