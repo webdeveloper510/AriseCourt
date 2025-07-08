@@ -1294,10 +1294,10 @@ class UsersInMyLocationView(APIView):
     def get(self, request):
         current_user = request.user
 
-        if not current_user.location:
+        if not current_user.locations:
             return Response({'error': 'You are not assigned to any location.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        users = User.objects.filter(location=current_user.location).exclude(id=current_user.id)
+        users = User.objects.filter(locations=current_user.locations).exclude(id=current_user.id)
 
         paginator = LargeResultsSetPagination()
         paginated_users = paginator.paginate_queryset(users, request)
