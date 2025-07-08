@@ -126,35 +126,29 @@ class UserLoginView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-
-        user = authenticate(request, username=email, password=password)
-
+        user = authenticate(request, username=email,password=password)
         if user is not None:
-            # Skip verification check for Admin (1) and SuperAdmin (0)
-            if user.user_type not in [0, 1] and not user.is_verified:
+            if not user.is_verified:
                 return Response({
                     'message': 'Email not verified. Please verify your email before logging in.',
                     'status_code': status.HTTP_403_FORBIDDEN
                 }, status=status.HTTP_403_FORBIDDEN)
-
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
             user_data['access_token'] = token['access']
-
             return Response({
                 'code': '200',
                 'message': 'Login Successfully',
                 'data': user_data
             }, status=status.HTTP_200_OK)
-
         else:
             return Response({
                 'message': 'Incorrect Username and Password',
                 'code': "400"
             }, status=status.HTTP_200_OK)
+
 
    
     
@@ -406,54 +400,54 @@ class AdminViewSet(viewsets.ModelViewSet):
                 queryset = queryset.filter(created_at__date__range=[start, end])
         return queryset
 
-    # def create(self, request, *args, **kwargs):
-    #     serializer = self.get_serializer(data=request.data)
-    #     serializer.is_valid(raise_exception=True)
-    #     location_id = request.data.get("location_id")
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        location_id = request.data.get("location_id")
 
-    #     if location_id:
-    #         existing_admin = User.objects.filter(
-    #             user_type=1,  # Admin
-    #             location_id=location_id
-    #         ).exists()
+        if location_id:
+            existing_admin = User.objects.filter(
+                user_type=1,  # Admin
+                location_id=location_id
+            ).exists()
 
-    #         if existing_admin:
-    #             # Check location status
-    #             location = Location.objects.filter(id=location_id, status=True).first()
-    #             if location:
-    #                 return Response({
-    #                     "message": "This location is already assigned to another admin.",
-    #                     "code": 400
-    #                 }, status=status.HTTP_200_OK)
+            if existing_admin:
+                # Check location status
+                location = Location.objects.filter(id=location_id, status=True).first()
+                if location:
+                    return Response({
+                        "message": "This location is already assigned to another admin.",
+                        "code": 400
+                    }, status=status.HTTP_200_OK)
 
-    #     access_flag = request.data.get("access_flag", None)
+        access_flag = request.data.get("access_flag", None)
 
-    #     if access_flag is None:
-    #         return Response({
-    #             "message": "Missing Permission.",
-    #             "status_code": status.HTTP_400_BAD_REQUEST,
-    #         }, status=status.HTTP_400_BAD_REQUEST)
+        if access_flag is None:
+            return Response({
+                "message": "Missing Permission.",
+                "status_code": status.HTTP_400_BAD_REQUEST,
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-    #     self.perform_create(serializer)
-    #     user = serializer.instance
+        self.perform_create(serializer)
+        user = serializer.instance
 
-    #     user.is_verified = True
-    #     user.save()
+        user.is_verified = True
+        user.save()
 
-    #     if user.location:
-    #         Location.objects.filter(id=user.location.id).update(status=True)
+        if user.location:
+            Location.objects.filter(id=user.location.id).update(status=True)
 
 
-    #     AdminPermission.objects.create(user=user, access_flag=str(access_flag))
+        AdminPermission.objects.create(user=user, access_flag=str(access_flag))
 
-    #     response_data = serializer.data
-    #     response_data['access_flag'] = str(access_flag)
+        response_data = serializer.data
+        response_data['access_flag'] = str(access_flag)
 
-    #     return Response({
-    #         "message": "Admin created successfully.",
-    #         "status_code": status.HTTP_201_CREATED,
-    #         "data": response_data
-    #     }, status=status.HTTP_201_CREATED)
+        return Response({
+            "message": "Admin created successfully.",
+            "status_code": status.HTTP_201_CREATED,
+            "data": response_data
+        }, status=status.HTTP_201_CREATED)
 
 
     def get(self, request):
