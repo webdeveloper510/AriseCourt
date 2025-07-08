@@ -126,28 +126,36 @@ class UserLoginView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        user = authenticate(request, username=email,password=password)
+
+        user = authenticate(request, username=email, password=password)
+
         if user is not None:
-            if not user.is_verified:
+            # Skip verification check for Admin (1) and SuperAdmin (0)
+            if user.user_type not in [0, 1] and not user.is_verified:
                 return Response({
                     'message': 'Email not verified. Please verify your email before logging in.',
                     'status_code': status.HTTP_403_FORBIDDEN
                 }, status=status.HTTP_403_FORBIDDEN)
+
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
             user_data['access_token'] = token['access']
+
             return Response({
                 'code': '200',
                 'message': 'Login Successfully',
                 'data': user_data
             }, status=status.HTTP_200_OK)
+
         else:
             return Response({
                 'message': 'Incorrect Username and Password',
                 'code': "400"
             }, status=status.HTTP_200_OK)
+
    
     
 
@@ -1012,23 +1020,23 @@ class LocationLoginView(APIView):
         location_id  = request.data.get("location_id")
 
         if not (email and password and location_id):
-            return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=400)
+            return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
 
         # Get user by email and location
         try:
             user = User.objects.get(email=email, location_id=location_id)
         except User.DoesNotExist:
-            return Response({"message": "Invalid email or location.", "code": 400}, status=400)
+            return Response({"message": "Invalid email or location.", "code": 400}, status=200)
 
         # Check password
         if not check_password(password, user.password):
-            return Response({"message": "Incorrect password.", "code": 401}, status=401)
+            return Response({"message": "Incorrect password.", "code": 400}, status=200)
 
         # Get court belonging to location
         try:
             court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
-            return Response({"message": "Invalid court for this location.", "code": 400}, status=400)
+            return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
 
         # Set time slots logic
         start_time = court.start_time or time(9, 0)
