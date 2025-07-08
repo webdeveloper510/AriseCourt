@@ -1349,13 +1349,16 @@ class UsersInMyLocationView(APIView):
 class AdminCourtBookingListView(APIView):
     permission_classes = [IsAuthenticated]
 
+
     def get(self, request):
         admin = request.user
 
         if admin.user_type != 1:
             raise PermissionDenied("Only admins can access this data.")
 
-        if not admin.location:
+        # Get all locations the admin is assigned to
+        locations = admin.locations.all()
+        if not locations.exists():
             return Response({
                 "message": "Admin is not assigned to any location.",
                 "status_code": 400
@@ -1365,8 +1368,9 @@ class AdminCourtBookingListView(APIView):
         search = request.query_params.get('search')  # e.g., user name, email, court number
         now = timezone.now()
 
+        # Filter bookings for courts in admin's locations
         bookings = CourtBooking.objects.filter(
-            court__location_id=admin.location.id
+            court__location__in=locations
         ).select_related('court', 'user')
 
         # Apply status filter
@@ -1384,15 +1388,14 @@ class AdminCourtBookingListView(APIView):
         # Apply search filter
         if search:
             bookings = bookings.filter(
-                Q(court__location_id__address_1__icontains=search) |
-                Q(court__location_id__address_2__icontains=search) |
-                Q(court__location_id__address_3__icontains=search) |
-                Q(court__location_id__address_4__icontains=search)
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(court__court_number__icontains=search)
             )
 
         bookings = bookings.order_by('booking_date', 'start_time')
 
-        # Apply pagination
         paginator = LargeResultsSetPagination()
         page = paginator.paginate_queryset(bookings, request)
         serializer = AdminCourtBookingSerializer(page, many=True)
@@ -1402,6 +1405,60 @@ class AdminCourtBookingListView(APIView):
             "status_code": 200,
             "data": serializer.data
         })
+
+    # def get(self, request):
+    #     admin = request.user
+
+    #     if admin.user_type != 1:
+    #         raise PermissionDenied("Only admins can access this data.")
+
+    #     if not admin.location:
+    #         return Response({
+    #             "message": "Admin is not assigned to any location.",
+    #             "status_code": 400
+    #         }, status=400)
+
+    #     status_param = request.query_params.get('status')  # 'past' or empty
+    #     search = request.query_params.get('search')  # e.g., user name, email, court number
+    #     now = timezone.now()
+
+    #     bookings = CourtBooking.objects.filter(
+    #         court__location_id=admin.location.id
+    #     ).select_related('court', 'user')
+
+    #     # Apply status filter
+    #     if status_param == 'past':
+    #         bookings = bookings.filter(
+    #             Q(booking_date__lt=now.date()) |
+    #             Q(booking_date=now.date(), end_time__lt=now.time())
+    #         )
+    #     else:
+    #         bookings = bookings.filter(
+    #             Q(booking_date__gt=now.date()) |
+    #             Q(booking_date=now.date(), end_time__gte=now.time())
+    #         )
+
+    #     # Apply search filter
+    #     if search:
+    #         bookings = bookings.filter(
+    #             Q(court__location_id__address_1__icontains=search) |
+    #             Q(court__location_id__address_2__icontains=search) |
+    #             Q(court__location_id__address_3__icontains=search) |
+    #             Q(court__location_id__address_4__icontains=search)
+    #         )
+
+    #     bookings = bookings.order_by('booking_date', 'start_time')
+
+    #     # Apply pagination
+    #     paginator = LargeResultsSetPagination()
+    #     page = paginator.paginate_queryset(bookings, request)
+    #     serializer = AdminCourtBookingSerializer(page, many=True)
+
+    #     return paginator.get_paginated_response({
+    #         "message": "Court bookings fetched successfully.",
+    #         "status_code": 200,
+    #         "data": serializer.data
+    #     })
     
 
 
