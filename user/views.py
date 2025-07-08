@@ -557,13 +557,12 @@ class AdminViewSet(viewsets.ModelViewSet):
                     "code": 400
                 }, status=status.HTTP_200_OK)
 
-            # ✅ Only check for conflict if location is active
+            # ✅ Check if location is already active for another admin
             conflict_location = Location.objects.filter(id=location_id, status=True).first()
-
             if conflict_location:
                 location_conflict = User.objects.filter(
                     user_type=1,
-                    locations__id=location_id  
+                    locations__id=location_id
                 ).exclude(id=instance.id).exists()
 
                 if location_conflict:
@@ -572,36 +571,45 @@ class AdminViewSet(viewsets.ModelViewSet):
                         "code": 400
                     }, status=status.HTTP_200_OK)
 
-            # ✅ Clear old locations and assign new one
+            # ✅ Deactivate previous location(s)
+            old_locations = instance.locations.all()
+            for old_location in old_locations:
+                old_location.status = False
+                old_location.save()
+
+            # ✅ Clear existing and assign new location
             instance.locations.clear()
             instance.locations.add(location_id)
 
-        # ✅ Update rest of the user
+            # ✅ Activate the newly assigned location
+            Location.objects.filter(id=location_id).update(status=True)
+
+        # ✅ Update other user fields
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
         # ✅ Update password if provided
-        password = request.data.get("password", None)
+        password = request.data.get("password")
         if password:
             instance.set_password(password)
             instance.save()
 
         # ✅ Update or create AdminPermission
-        access_flag = request.data.get("access_flag", None)
+        access_flag = request.data.get("access_flag")
         if access_flag is not None:
-            try:
-                admin_permission = AdminPermission.objects.get(user=instance)
-                admin_permission.access_flag = str(access_flag)
-                admin_permission.save()
-            except AdminPermission.DoesNotExist:
-                AdminPermission.objects.create(user=instance, access_flag=str(access_flag))
+            AdminPermission.objects.update_or_create(
+                user=instance,
+                defaults={"access_flag": str(access_flag)}
+            )
 
         return Response({
             "message": "Admin updated successfully.",
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
+
 
 
 
