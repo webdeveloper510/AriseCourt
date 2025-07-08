@@ -116,30 +116,31 @@ class LocationDataSerializer(serializers.ModelSerializer):
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
     location_id = serializers.IntegerField(write_only=True)
-    location = LocationDataSerializer(read_only=True)  # ✅ Include full nested location
+    locations = LocationDataSerializer(many=True, read_only=True) 
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone',
-            'location_id', 'location', 'user_type', 'password',
+            'location_id', 'locations', 'user_type', 'password',
             'created_at', 'updated_at', 'access_flag'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
             'user_type': {'default': 1}
         }
-
     def create(self, validated_data):
         password = validated_data.pop('password')
         location_id = validated_data.pop('location_id')
 
         user = User(**validated_data)
-        user.locations_id = location_id 
         user.set_password(password)
         user.save()
+
+        # ✅ Correct way to assign ManyToMany location
+        user.locations.add(location_id)
         return user
-    
+   
     def get_access_flag(self, obj):
         try:
             permission = AdminPermission.objects.get(user=obj)

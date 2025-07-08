@@ -30,6 +30,8 @@ from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, time
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError
+from django.db.models import Q, Value, CharField
+from django.db.models.functions import Concat
 
 
 # Create your views here.
@@ -483,21 +485,20 @@ class AdminViewSet(viewsets.ModelViewSet):
             if start and end:
                 queryset = queryset.filter(created_at__date__range=[start, end])
         return queryset
-
+    
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         location_id = request.data.get("location_id")
 
-        # ✅ Corrected field name to match model (locations_id)
+        # ✅ Use correct M2M lookup
         if location_id:
             existing_admin = User.objects.filter(
-                user_type=1,  # Admin
-                locations_id=location_id
+                user_type=1,
+                locations__id=location_id
             ).exists()
 
             if existing_admin:
-                # Check location status
                 location = Location.objects.filter(id=location_id, status=True).first()
                 if location:
                     return Response({
@@ -520,9 +521,9 @@ class AdminViewSet(viewsets.ModelViewSet):
         user.is_verified = True
         user.save()
 
-        # ✅ Update location status only if assigned
-        if user.locations:
-            Location.objects.filter(id=user.locations.id).update(status=True)
+        # ✅ Update location status if assigned
+        if user.locations.exists():
+            Location.objects.filter(id__in=user.locations.values_list('id', flat=True)).update(status=True)
 
         # ✅ Set access flag
         AdminPermission.objects.create(user=user, access_flag=str(access_flag))
@@ -535,65 +536,6 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_201_CREATED,
             "data": response_data
         }, status=status.HTTP_201_CREATED)
-
-
-
-    # def get(self, request):
-    #     admin = request.user
-
-    #     if admin.user_type != 1:
-    #         raise PermissionDenied("Only admins can access this data.")
-
-    #     if not admin.location:
-    #         return Response({
-    #             "message": "Admin is not assigned to any location.",
-    #             "status_code": 400
-    #         }, status=400)
-
-    #     status_param = request.query_params.get('status')  # 'past' or empty
-    #     search = request.query_params.get('search')  # e.g., user name, email, court number
-    #     now = timezone.now()
-
-    #     bookings = CourtBooking.objects.filter(
-    #         court__location_id=admin.location.id
-    #     ).select_related('court', 'user')
-
-    #     # Apply status filter
-    #     if status_param == 'past':
-    #         bookings = bookings.filter(
-    #             Q(booking_date__lt=now.date()) |
-    #             Q(booking_date=now.date(), end_time__lt=now.time())
-    #         )
-    #     else:
-    #         bookings = bookings.filter(
-    #             Q(booking_date__gt=now.date()) |
-    #             Q(booking_date=now.date(), end_time__gte=now.time())
-    #         )
-
-    #     # Apply search filter
-    #     if search:
-    #         bookings = bookings.filter(
-    #             Q(court__location_id__address_1__icontains=search) |
-    #             Q(court__location_id__address_2__icontains=search) |
-    #             Q(court__location_id__address_3__icontains=search) |
-    #             Q(court__location_id__address_4__icontains=search)
-    #         )
-
-    #     bookings = bookings.order_by('booking_date', 'start_time')
-
-    #     # Apply pagination
-    #     paginator = LargeResultsSetPagination()
-    #     page = paginator.paginate_queryset(bookings, request)
-    #     serializer = AdminCourtBookingSerializer(page, many=True)
-
-    #     return Response({
-    #         "count": paginator.page.paginator.count,
-    #         "next": paginator.get_next_link(),
-    #         "previous": paginator.get_previous_link(),
-    #         "message": "Court bookings fetched successfully.",
-    #         "status_code": 200,
-    #         "results": serializer.data
-    #     })
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
@@ -666,31 +608,52 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
+        # Get bookings based on user type
         if request.user.is_superuser:
             bookings = CourtBooking.objects.all()
         else:
             bookings = CourtBooking.objects.filter(user=request.user)
 
+        # Annotate a combined address field
+        bookings = bookings.annotate(
+            full_address=Concat(
+                'court__location_id__address_1', Value(' '),
+                'court__location_id__address_2', Value(' '),
+                'court__location_id__address_3', Value(' '),
+                'court__location_id__address_4', output_field=CharField()
+            )
+        )
+
+        # Filter by date range
         if start_date and end_date:
             start = parse_date(start_date)
             end = parse_date(end_date)
             if start and end:
                 bookings = bookings.filter(booking_date__range=(start, end))
 
+        # Filter by search
         if search:
             bookings = bookings.filter(
                 Q(user__first_name__icontains=search) |
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search) |
                 Q(user__phone__icontains=search) |
-                Q(booking_date__icontains=search)
+                Q(booking_date__icontains=search) |
+                Q(court__location_id__name__icontains=search) |
+                Q(court__location_id__city__icontains=search) |
+                Q(court__location_id__state__icontains=search) |
+                Q(court__location_id__country__icontains=search) |
+                Q(court__location_id__description__icontains=search) |
+                Q(full_address__icontains=search)  # ✅ Search in combined address
             )
 
+        # Filter by booking type (past/upcoming)
         if booking_type == 'past':
             bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
         else:
             bookings = bookings.filter(booking_date__gte=today).order_by('booking_date')
 
+        # Paginate and return response
         page = self.paginate_queryset(bookings)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
