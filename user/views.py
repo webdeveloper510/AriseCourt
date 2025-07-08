@@ -200,6 +200,12 @@ class UserLoginView(APIView):
                 'message': 'Incorrect Username or Password',
                 'code': "400"
             }, status=status.HTTP_200_OK)
+        
+        if not user.is_verified:
+            return Response({
+                'message': 'Email not verified. Please verify your email before logging in.',
+                'code': 400
+            }, status=status.HTTP_200_OK)
 
         # ✅ SuperAdmin logic
         if user.user_type == 0:
@@ -1168,21 +1174,23 @@ class PaymentSuccessAPIView(APIView):
 
 
 
+
 class LocationLoginView(APIView):
     def post(self, request):
         email = request.data.get("email", "").strip()
         password = request.data.get("password")
-        court_id = request.data.get("court_id")
         location_id = request.data.get("location_id")
+        court_number = request.data.get("court_number")
+        booking_date_str = request.data.get("booking_date")
 
-        # Validate required fields
-        if not (email and password and location_id):
+        # ✅ Validate required fields
+        if not (email and password and location_id and court_number and booking_date_str):
             return Response({
-                "message": "Email, password, and location_id are required.",
+                "message": "Email, password, location_id, court_number, and booking_date are required.",
                 "code": 400
             }, status=200)
 
-        # Cast location_id to int
+        # ✅ Validate location_id
         try:
             location_id = int(location_id)
         except (TypeError, ValueError):
@@ -1191,7 +1199,16 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
-        # ✅ Get user with email and matching location in ManyToMany
+        # ✅ Parse booking_date
+        try:
+            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
+        except ValueError:
+            return Response({
+                "message": "Invalid booking_date format. Use YYYY-MM-DD.",
+                "code": 400
+            }, status=200)
+
+        # ✅ Get user assigned to location
         try:
             user = User.objects.get(email__iexact=email, locations__id=location_id)
         except User.DoesNotExist:
@@ -1207,16 +1224,16 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
-        # ✅ Get court and validate it belongs to location
+        # ✅ Get court by court_number and location
         try:
-            court = Court.objects.get(id=court_id, location_id=location_id)
+            court = Court.objects.get(location_id=location_id, court_number=court_number)
         except Court.DoesNotExist:
             return Response({
                 "message": "Invalid court for this location.",
                 "code": 400
             }, status=200)
 
-        # ✅ Determine slot timing
+        # ✅ Setup timing
         start_time = court.start_time or time(9, 0)
         end_time = court.end_time or time(21, 0)
 
@@ -1226,12 +1243,15 @@ class LocationLoginView(APIView):
         else:
             now = now.replace(minute=0, second=0, microsecond=0)
 
-        today = date.today()
-        bookings = CourtBooking.objects.filter(court=court, booking_date=today)
+        base_time = datetime.combine(booking_date, now.time())
 
+        # ✅ Get bookings for this court on booking_date
+        bookings = CourtBooking.objects.filter(court=court, booking_date=booking_date)
+
+        # ✅ Build slot list
         slots = []
         for i in range(4):
-            slot_start = now + timedelta(hours=i)
+            slot_start = base_time + timedelta(hours=i)
             slot_end = slot_start + timedelta(hours=1)
 
             if slot_end.time() > end_time:
@@ -1239,8 +1259,8 @@ class LocationLoginView(APIView):
 
             booked = None
             for b in bookings:
-                b_start = datetime.combine(today, b.start_time)
-                b_end = datetime.combine(today, b.end_time)
+                b_start = datetime.combine(booking_date, b.start_time)
+                b_end = datetime.combine(booking_date, b.end_time)
                 if b_start <= slot_start < b_end:
                     booked = b
                     break
@@ -1253,7 +1273,7 @@ class LocationLoginView(APIView):
                     "court_number": court.court_number,
                     "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
                     "status": "BOOKED",
-                    "user_name": booked.user.first_name,
+                    "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
                     "start_time": booked.start_time.strftime("%H:%M"),
                     "end_time": booked.end_time.strftime("%H:%M")
                 })
@@ -1262,6 +1282,8 @@ class LocationLoginView(APIView):
                     "code": i + 1,
                     "court_id": court.id,
                     "location_id": court.location_id.id,
+                    "court_number": court.court_number,
+                    "booking_date": booking_date.strftime("%Y-%m-%d"),
                     "status": "OPEN",
                     "start_time": slot_start.strftime("%H:%M"),
                     "end_time": slot_end.strftime("%H:%M")
@@ -1305,6 +1327,8 @@ class UsersInMyLocationView(APIView):
         serializer = UserLoginFieldsSerializer(paginated_users, many=True)
 
         return paginator.get_paginated_response(serializer.data)
+
+
 
     # def get(self, request):
     #     current_user = request.user
