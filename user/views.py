@@ -1251,10 +1251,12 @@ class MyLocationView(APIView):
 
     def get(self, request):
         user = request.user  # Get the user from the token
-        if not user.location:
+        locations = user.locations.all()  # Queryset of assigned locations
+
+        if not locations.exists():
             return Response({'error': 'Location not assigned to user'}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = LocationSerializer(user.location)
+        serializer = LocationSerializer(locations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
