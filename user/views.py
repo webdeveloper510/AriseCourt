@@ -134,19 +134,19 @@ class UserLoginView(APIView):
         user = authenticate(request, username=email, password=password)
 
         if user is not None:
-            # ✅ Enforce location only if not SuperAdmin
-            if user.user_type != 0:
+            # ✅ Enforce location only for Coach, Player, Court (user_type > 1)
+            if user.user_type > 1:
                 if not location_id:
                     return Response({
-                        'message': 'Location is required for Admin, Coach, Player, and Court users.',
-                        'status_code': status.HTTP_400_BAD_REQUEST
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                        'message': 'Location is required.',
+                        'code': 400
+                    }, status=status.HTTP_200_OK)
 
                 if not user.location or str(user.location.id) != str(location_id):
                     return Response({
-                        'message': 'You are not assigned to this location.',
-                        'status_code': status.HTTP_400_BAD_REQUEST
-                    }, status=status.HTTP_400_BAD_REQUEST)
+                        'message': 'You are not assigned to this location. First please Register for this Location',
+                        'code': 400
+                    }, status=status.HTTP_200_OK)
 
             # ✅ Email verification check
             if not user.is_verified:
