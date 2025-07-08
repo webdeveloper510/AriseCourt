@@ -191,7 +191,7 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        location_id = serializer.validated_data.get('location')  # optional
+        location_id = serializer.validated_data.get('location')  # Optional
 
         user = authenticate(request, username=email, password=password)
 
@@ -205,13 +205,18 @@ class UserLoginView(APIView):
         if user.user_type == 0:
             if location_id:
                 # Create or fetch the location
-                location, created = Location.objects.get_or_create(id=location_id, defaults={'name': f'Location {location_id}'})
-                # Optional: you can return location name in response if needed
+                location, created = Location.objects.get_or_create(
+                    id=location_id,
+                    defaults={'name': f'Location {location_id}'}
+                )
+                # Optionally, assign it to the superadmin if not already assigned
+                if not user.locations.filter(id=location_id).exists():
+                    user.locations.add(location)
 
-        # ✅ Other user logic
+        # ✅ Other user logic (Admin, Coach, etc.)
         elif user.user_type > 0:
             if location_id:
-                if not user.location or str(user.location.id) != str(location_id):
+                if not user.locations.filter(id=location_id).exists():
                     return Response({
                         'message': 'You are not assigned to this location.',
                         'code': 400
@@ -221,10 +226,10 @@ class UserLoginView(APIView):
         if not user.is_verified:
             return Response({
                 'message': 'Email not verified.',
-                'status_code': status.HTTP_403_FORBIDDEN
+                'code': 403
             }, status=status.HTTP_403_FORBIDDEN)
 
-        # ✅ Success response
+        # ✅ Generate tokens
         token = get_tokens_for_user(user)
         user_data = UserLoginFieldsSerializer(user).data
         user_data['access_token'] = token['access']
@@ -389,7 +394,7 @@ class LocationViewSet(viewsets.ModelViewSet):
                     return Response({
                         "message": "Location with this name already exists.",
                         "status_code": 400
-                    }, status=400)
+                    }, status=200)
 
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
