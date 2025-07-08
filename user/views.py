@@ -134,8 +134,14 @@ class UserLoginView(APIView):
         # Authenticate user
         user = authenticate(request, username=email, password=password)
         if user is not None:
-            # ✅ Skip location check for Admin (1) and Super Admin (0)
-            if user.user_type not in [0, 1]:  # Only check for other user types
+            # ✅ If user is not Superuser, then location must be provided and must match
+            if user.user_type != 0:
+                if not location_id:
+                    return Response({
+                        'message': 'Location is required for non-superusers.',
+                        'status_code': status.HTTP_400_BAD_REQUEST
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
                 if str(user.location_id) != str(location_id):
                     return Response({
                         'message': 'You are not assigned to this location.',

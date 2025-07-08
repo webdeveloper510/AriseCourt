@@ -153,6 +153,7 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
 class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(required=True)
+    location = serializers.IntegerField(required=False)
 
 
 
