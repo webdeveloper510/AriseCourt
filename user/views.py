@@ -129,26 +129,26 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        location_id = serializer.validated_data['location']
+        location_id = serializer.validated_data.get('location')  # Safe fetch
 
-        # Authenticate user
         user = authenticate(request, username=email, password=password)
+
         if user is not None:
-            # ✅ If user is not Superuser, then location must be provided and must match
+            # ✅ Enforce location only if not SuperAdmin
             if user.user_type != 0:
                 if not location_id:
                     return Response({
-                        'message': 'Location is required for non-superusers.',
+                        'message': 'Location is required for Admin, Coach, Player, and Court users.',
                         'status_code': status.HTTP_400_BAD_REQUEST
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-                if str(user.location_id) != str(location_id):
+                if not user.location or str(user.location.id) != str(location_id):
                     return Response({
                         'message': 'You are not assigned to this location.',
                         'status_code': status.HTTP_400_BAD_REQUEST
                     }, status=status.HTTP_400_BAD_REQUEST)
 
-            # ✅ Check if email is verified
+            # ✅ Email verification check
             if not user.is_verified:
                 return Response({
                     'message': 'Email not verified. Please verify your email before logging in.',
@@ -166,11 +166,12 @@ class UserLoginView(APIView):
                 'data': user_data
             }, status=status.HTTP_200_OK)
 
-        # ❌ Invalid email/password
+        # ❌ Invalid credentials
         return Response({
             'message': 'Incorrect Username or Password',
             'code': "400"
         }, status=status.HTTP_200_OK)
+
 
 
 
