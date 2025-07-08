@@ -1356,7 +1356,6 @@ class AdminCourtBookingListView(APIView):
         if admin.user_type != 1:
             raise PermissionDenied("Only admins can access this data.")
 
-        # Get all locations the admin is assigned to
         locations = admin.locations.all()
         if not locations.exists():
             return Response({
@@ -1364,16 +1363,18 @@ class AdminCourtBookingListView(APIView):
                 "status_code": 400
             }, status=400)
 
-        status_param = request.query_params.get('status')  # 'past' or empty
-        search = request.query_params.get('search')  # e.g., user name, email, court number
+        # Get courts in these locations
+        court_ids = Court.objects.filter(location__in=locations).values_list('id', flat=True)
+
+        status_param = request.query_params.get('status')
+        search = request.query_params.get('search')
         now = timezone.now()
 
-        # Filter bookings for courts in admin's locations
         bookings = CourtBooking.objects.filter(
-            court__location__in=locations
+            court_id__in=court_ids
         ).select_related('court', 'user')
 
-        # Apply status filter
+        # Status filter
         if status_param == 'past':
             bookings = bookings.filter(
                 Q(booking_date__lt=now.date()) |
@@ -1385,7 +1386,7 @@ class AdminCourtBookingListView(APIView):
                 Q(booking_date=now.date(), end_time__gte=now.time())
             )
 
-        # Apply search filter
+        # Search filter
         if search:
             bookings = bookings.filter(
                 Q(user__first_name__icontains=search) |
