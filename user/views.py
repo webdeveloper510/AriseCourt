@@ -126,28 +126,45 @@ class UserLoginView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        user = authenticate(request, username=email,password=password)
+        location_id = serializer.validated_data['location']
+
+        # Authenticate user
+        user = authenticate(request, username=email, password=password)
         if user is not None:
+            # ✅ Check if user is assigned to the given location
+            if str(user.location_id) != str(location_id):
+                return Response({
+                    'message': 'You are not assign to this location.',
+                    'status_code': status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            # ✅ Check if email is verified
             if not user.is_verified:
                 return Response({
                     'message': 'Email not verified. Please verify your email before logging in.',
                     'status_code': status.HTTP_403_FORBIDDEN
                 }, status=status.HTTP_403_FORBIDDEN)
+
+            # ✅ Generate token and return user data
             token = get_tokens_for_user(user)
             user_data = UserLoginFieldsSerializer(user).data
             user_data['access_token'] = token['access']
+
             return Response({
                 'code': '200',
                 'message': 'Login Successfully',
                 'data': user_data
             }, status=status.HTTP_200_OK)
-        else:
-            return Response({
-                'message': 'Incorrect Username and Password',
-                'code': "400"
-            }, status=status.HTTP_200_OK)
+
+        # ❌ Invalid email/password
+        return Response({
+            'message': 'Incorrect Username or Password',
+            'code': "400"
+        }, status=status.HTTP_200_OK)
+
 
 
    
