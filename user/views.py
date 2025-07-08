@@ -222,12 +222,12 @@ class UserLoginView(APIView):
                         'code': 400
                     }, status=status.HTTP_200_OK)
 
-        # ✅ Email verification check
-        if not user.is_verified:
-            return Response({
-                'message': 'Email not verified.',
-                'code': 403
-            }, status=status.HTTP_403_FORBIDDEN)
+            # ✅ Email verification check
+                if not user.is_verified:
+                    return Response({
+                        'message': 'Email not verified. Please verify your email before logging in.',
+                        'code': 400
+                    }, status=status.HTTP_200_OK)
 
         # ✅ Generate tokens
         token = get_tokens_for_user(user)
@@ -548,15 +548,22 @@ class AdminViewSet(viewsets.ModelViewSet):
 
         location_id = request.data.get("location_id")
 
-        # ✅ Correct the location field to match your model: `locations`
-        if location_id and str(instance.locations_id) != str(location_id):
-            # Only restrict if the location is active (status=True)
+        if location_id:
+            try:
+                location_id = int(location_id)
+            except (ValueError, TypeError):
+                return Response({
+                    "message": "Invalid location ID.",
+                    "code": 400
+                }, status=status.HTTP_200_OK)
+
+            # ✅ Only check for conflict if location is active
             conflict_location = Location.objects.filter(id=location_id, status=True).first()
 
             if conflict_location:
                 location_conflict = User.objects.filter(
                     user_type=1,
-                    locations_id=location_id
+                    locations__id=location_id  
                 ).exclude(id=instance.id).exists()
 
                 if location_conflict:
@@ -565,15 +572,22 @@ class AdminViewSet(viewsets.ModelViewSet):
                         "code": 400
                     }, status=status.HTTP_200_OK)
 
+            # ✅ Clear old locations and assign new one
+            instance.locations.clear()
+            instance.locations.add(location_id)
+
+        # ✅ Update rest of the user
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
+        # ✅ Update password if provided
         password = request.data.get("password", None)
         if password:
             instance.set_password(password)
             instance.save()
 
+        # ✅ Update or create AdminPermission
         access_flag = request.data.get("access_flag", None)
         if access_flag is not None:
             try:
@@ -588,6 +602,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
 
 
 
@@ -1168,23 +1183,23 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
-        # Get user with email and location
+        # ✅ Get user with email and matching location in ManyToMany
         try:
-            user = User.objects.get(email__iexact=email, location_id=location_id)
+            user = User.objects.get(email__iexact=email, locations__id=location_id)
         except User.DoesNotExist:
             return Response({
                 "message": "Invalid email or location.",
                 "code": 400
             }, status=200)
 
-        # Check password
+        # ✅ Check password
         if not check_password(password, user.password):
             return Response({
                 "message": "Incorrect password.",
                 "code": 400
             }, status=200)
 
-        # Get court and validate it belongs to location
+        # ✅ Get court and validate it belongs to location
         try:
             court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
@@ -1193,7 +1208,7 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
-        # Determine slot timing
+        # ✅ Determine slot timing
         start_time = court.start_time or time(9, 0)
         end_time = court.end_time or time(21, 0)
 
