@@ -134,12 +134,13 @@ class UserLoginView(APIView):
         # Authenticate user
         user = authenticate(request, username=email, password=password)
         if user is not None:
-            # ✅ Check if user is assigned to the given location
-            if str(user.location_id) != str(location_id):
-                return Response({
-                    'message': 'You are not assign to this location.',
-                    'status_code': status.HTTP_400_BAD_REQUEST
-                }, status=status.HTTP_400_BAD_REQUEST)
+            # ✅ Skip location check for Admin (1) and Super Admin (0)
+            if user.user_type not in [0, 1]:  # Only check for other user types
+                if str(user.location_id) != str(location_id):
+                    return Response({
+                        'message': 'You are not assigned to this location.',
+                        'status_code': status.HTTP_400_BAD_REQUEST
+                    }, status=status.HTTP_400_BAD_REQUEST)
 
             # ✅ Check if email is verified
             if not user.is_verified:
