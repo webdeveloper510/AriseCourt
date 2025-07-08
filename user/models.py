@@ -38,7 +38,7 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     is_verified = models.BooleanField(default=False)
     verified_otp = models.CharField(max_length=6, null=True, blank=True)
-    location = models.ForeignKey('Location', on_delete=models.CASCADE, related_name='assigned_users', null=True)
+    locations = models.ManyToManyField('Location', related_name='assigned_superadmins', blank=True)
 
     objects = CustomUserManager()
 

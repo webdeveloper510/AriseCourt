@@ -122,6 +122,66 @@ class UserCreateView(APIView):
 
     
 
+# class UserLoginView(APIView):
+#     def post(self, request):
+#         serializer = UserLoginSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+
+#         email = serializer.validated_data['email']
+#         password = serializer.validated_data['password']
+#         location_id = serializer.validated_data.get('location')
+
+#         user = authenticate(request, username=email, password=password)
+
+#         if user is not None:
+#             # ✅ Location logic for Admins (user_type == 1)
+#             if user.user_type == 1:
+#                 if location_id:  # Location was passed by admin
+#                     if not user.location or str(user.location.id) != str(location_id):
+#                         return Response({
+#                             'message': 'You are not assigned to this location. First please register for this location.',
+#                             'code': 400
+#                         }, status=status.HTTP_200_OK)
+
+#             # ✅ Location logic for other users (user_type > 1)
+#             elif user.user_type > 1:
+#                 if not location_id:
+#                     return Response({
+#                         'message': 'Location is required.',
+#                         'code': 400
+#                     }, status=status.HTTP_200_OK)
+
+#                 if not user.location or str(user.location.id) != str(location_id):
+#                     return Response({
+#                         'message': 'You are not assigned to this location. First please register for this location.',
+#                         'code': 400
+#                     }, status=status.HTTP_200_OK)
+
+#             # ✅ Email verification check
+#             if not user.is_verified:
+#                 return Response({
+#                     'message': 'Email not verified. Please verify your email before logging in.',
+#                     'status_code': status.HTTP_403_FORBIDDEN
+#                 }, status=status.HTTP_403_FORBIDDEN)
+
+#             # ✅ Generate token and return user data
+#             token = get_tokens_for_user(user)
+#             user_data = UserLoginFieldsSerializer(user).data
+#             user_data['access_token'] = token['access']
+
+#             return Response({
+#                 'code': '200',
+#                 'message': 'Login Successfully',
+#                 'data': user_data
+#             }, status=status.HTTP_200_OK)
+
+#         # ❌ Invalid credentials
+#         return Response({
+#             'message': 'Incorrect Username or Password',
+#             'code': "400"
+#         }, status=status.HTTP_200_OK)
+
+
 class UserLoginView(APIView):
     def post(self, request):
         serializer = UserLoginSerializer(data=request.data)
@@ -129,60 +189,49 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        location_id = serializer.validated_data.get('location')
+        location_id = serializer.validated_data.get('location')  # optional
 
         user = authenticate(request, username=email, password=password)
 
-        if user is not None:
-            # ✅ Location logic for Admins (user_type == 1)
-            if user.user_type == 1:
-                if location_id:  # Location was passed by admin
-                    if not user.location or str(user.location.id) != str(location_id):
-                        return Response({
-                            'message': 'You are not assigned to this location. First please register for this location.',
-                            'code': 400
-                        }, status=status.HTTP_200_OK)
-
-            # ✅ Location logic for other users (user_type > 1)
-            elif user.user_type > 1:
-                if not location_id:
-                    return Response({
-                        'message': 'Location is required.',
-                        'code': 400
-                    }, status=status.HTTP_200_OK)
-
-                if not user.location or str(user.location.id) != str(location_id):
-                    return Response({
-                        'message': 'You are not assigned to this location. First please register for this location.',
-                        'code': 400
-                    }, status=status.HTTP_200_OK)
-
-            # ✅ Email verification check
-            if not user.is_verified:
-                return Response({
-                    'message': 'Email not verified. Please verify your email before logging in.',
-                    'status_code': status.HTTP_403_FORBIDDEN
-                }, status=status.HTTP_403_FORBIDDEN)
-
-            # ✅ Generate token and return user data
-            token = get_tokens_for_user(user)
-            user_data = UserLoginFieldsSerializer(user).data
-            user_data['access_token'] = token['access']
-
+        if user is None:
             return Response({
-                'code': '200',
-                'message': 'Login Successfully',
-                'data': user_data
+                'message': 'Incorrect Username or Password',
+                'code': "400"
             }, status=status.HTTP_200_OK)
 
-        # ❌ Invalid credentials
+        # ✅ SuperAdmin logic
+        if user.user_type == 0:
+            if location_id:
+                # Create or fetch the location
+                location, created = Location.objects.get_or_create(id=location_id, defaults={'name': f'Location {location_id}'})
+                # Optional: you can return location name in response if needed
+
+        # ✅ Other user logic
+        elif user.user_type > 0:
+            if location_id:
+                if not user.location or str(user.location.id) != str(location_id):
+                    return Response({
+                        'message': 'You are not assigned to this location.',
+                        'code': 400
+                    }, status=status.HTTP_200_OK)
+
+        # ✅ Email verification check
+        if not user.is_verified:
+            return Response({
+                'message': 'Email not verified.',
+                'status_code': status.HTTP_403_FORBIDDEN
+            }, status=status.HTTP_403_FORBIDDEN)
+
+        # ✅ Success response
+        token = get_tokens_for_user(user)
+        user_data = UserLoginFieldsSerializer(user).data
+        user_data['access_token'] = token['access']
+
         return Response({
-            'message': 'Incorrect Username or Password',
-            'code': "400"
+            'code': '200',
+            'message': 'Login Successfully',
+            'data': user_data
         }, status=status.HTTP_200_OK)
-
-
-
 
 
    
@@ -602,7 +651,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name', 'user__last_name', 'user__email', 'user__phone']
+    search_fields = ['user__first_name','user__last_name','user__email','user__phone','court__location_id__name','court__location_id__city','court__location_id__state','court__location_id__country','court__location_id__description','court__location_id__address_1','court__location_id__address_2','court__location_id__address_3','court__location_id__address_4']
 
     def list(self, request, *args, **kwargs):
         today = date.today()
@@ -1041,33 +1090,136 @@ class PaymentSuccessAPIView(APIView):
             return Response({"error": "Payment not found"}, status=404)
         
         
+# class LocationLoginView(APIView):
+#     def post(self, request):
+#         email        = request.data.get("email")
+#         password     = request.data.get("password")
+#         court_id     = request.data.get("court_id")
+#         location_id  = request.data.get("location_id")
+
+#         if not (email and password and location_id):
+#             return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
+
+#         # Get user by email and location
+#         try:
+#             user = User.objects.get(email=email, location_id=location_id)
+#         except User.DoesNotExist:
+#             return Response({"message": "Invalid email or location.", "code": 400}, status=200)
+
+#         # Check password
+#         if not check_password(password, user.password):
+#             return Response({"message": "Incorrect password.", "code": 400}, status=200)
+
+#         # Get court belonging to location
+#         try:
+#             court = Court.objects.get(id=court_id, location_id=location_id)
+#         except Court.DoesNotExist:
+#             return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
+
+#         # Set time slots logic
+#         start_time = court.start_time or time(9, 0)
+#         end_time = court.end_time or time(21, 0)
+
+#         now = datetime.now()
+#         if now.minute > 0:
+#             now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+#         else:
+#             now = now.replace(minute=0, second=0, microsecond=0)
+
+#         today = date.today()
+#         bookings = CourtBooking.objects.filter(court=court, booking_date=today)
+
+#         slots = []
+#         for i in range(4):
+#             slot_start = now + timedelta(hours=i)
+#             slot_end = slot_start + timedelta(hours=1)
+
+#             if slot_end.time() > end_time:
+#                 break
+
+#             booked = None
+#             for b in bookings:
+#                 b_start = datetime.combine(today, b.start_time)
+#                 b_end = datetime.combine(today, b.end_time)
+#                 if b_start <= slot_start < b_end:
+#                     booked = b
+#                     break
+
+#             if booked:
+#                 slots.append({
+#                     "code": i + 1,
+#                     "court_id": court.id,
+#                     "location_id": court.location_id.id,
+#                     "court_number":court.court_number,
+#                     "booking_date":bookings.booking_date,
+#                     "status": "BOOKED",
+#                     "user_name": booked.user.first_name,
+#                     "start_time": booked.start_time.strftime("%H:%M"),
+#                     "end_time": booked.end_time.strftime("%H:%M")
+#                 })
+#             else:
+#                 slots.append({
+#                     "code": i + 1,
+#                     "court_id": court.id,
+#                     "location_id": court.location_id.id,
+#                     "status": "OPEN",
+#                     "start_time": slot_start.strftime("%H:%M"),
+#                     "end_time": slot_end.strftime("%H:%M")
+#                 })
+
+#         return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
+
+
+
 class LocationLoginView(APIView):
     def post(self, request):
-        email        = request.data.get("email")
-        password     = request.data.get("password")
-        court_id     = request.data.get("court_id")
-        location_id  = request.data.get("location_id")
+        email = request.data.get("email", "").strip()
+        password = request.data.get("password")
+        court_id = request.data.get("court_id")
+        location_id = request.data.get("location_id")
 
+        # Validate required fields
         if not (email and password and location_id):
-            return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
+            return Response({
+                "message": "Email, password, and location_id are required.",
+                "code": 400
+            }, status=200)
 
-        # Get user by email and location
+        # Cast location_id to int
         try:
-            user = User.objects.get(email=email, location_id=location_id)
+            location_id = int(location_id)
+        except (TypeError, ValueError):
+            return Response({
+                "message": "Invalid location_id format.",
+                "code": 400
+            }, status=200)
+
+        # Get user with email and location
+        try:
+            user = User.objects.get(email__iexact=email, location_id=location_id)
         except User.DoesNotExist:
-            return Response({"message": "Invalid email or location.", "code": 400}, status=200)
+            return Response({
+                "message": "Invalid email or location.",
+                "code": 400
+            }, status=200)
 
         # Check password
         if not check_password(password, user.password):
-            return Response({"message": "Incorrect password.", "code": 400}, status=200)
+            return Response({
+                "message": "Incorrect password.",
+                "code": 400
+            }, status=200)
 
-        # Get court belonging to location
+        # Get court and validate it belongs to location
         try:
             court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
-            return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
+            return Response({
+                "message": "Invalid court for this location.",
+                "code": 400
+            }, status=200)
 
-        # Set time slots logic
+        # Determine slot timing
         start_time = court.start_time or time(9, 0)
         end_time = court.end_time or time(21, 0)
 
@@ -1101,8 +1253,8 @@ class LocationLoginView(APIView):
                     "code": i + 1,
                     "court_id": court.id,
                     "location_id": court.location_id.id,
-                    "court_number":court.court_number,
-                    "booking_date":bookings.booking_date,
+                    "court_number": court.court_number,
+                    "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
                     "status": "BOOKED",
                     "user_name": booked.user.first_name,
                     "start_time": booked.start_time.strftime("%H:%M"),
@@ -1118,7 +1270,10 @@ class LocationLoginView(APIView):
                     "end_time": slot_end.strftime("%H:%M")
                 })
 
-        return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
+        return Response({
+            "slots": slots,
+            "location_id": court.location_id.id
+        }, status=200)
 
 
 
