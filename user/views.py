@@ -450,62 +450,62 @@ class AdminViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_201_CREATED)
 
 
-    def get(self, request):
-        admin = request.user
+    # def get(self, request):
+    #     admin = request.user
 
-        if admin.user_type != 1:
-            raise PermissionDenied("Only admins can access this data.")
+    #     if admin.user_type != 1:
+    #         raise PermissionDenied("Only admins can access this data.")
 
-        if not admin.location:
-            return Response({
-                "message": "Admin is not assigned to any location.",
-                "status_code": 400
-            }, status=400)
+    #     if not admin.location:
+    #         return Response({
+    #             "message": "Admin is not assigned to any location.",
+    #             "status_code": 400
+    #         }, status=400)
 
-        status_param = request.query_params.get('status')  # 'past' or empty
-        search = request.query_params.get('search')  # e.g., user name, email, court number
-        now = timezone.now()
+    #     status_param = request.query_params.get('status')  # 'past' or empty
+    #     search = request.query_params.get('search')  # e.g., user name, email, court number
+    #     now = timezone.now()
 
-        bookings = CourtBooking.objects.filter(
-            court__location_id=admin.location.id
-        ).select_related('court', 'user')
+    #     bookings = CourtBooking.objects.filter(
+    #         court__location_id=admin.location.id
+    #     ).select_related('court', 'user')
 
-        # Apply status filter
-        if status_param == 'past':
-            bookings = bookings.filter(
-                Q(booking_date__lt=now.date()) |
-                Q(booking_date=now.date(), end_time__lt=now.time())
-            )
-        else:
-            bookings = bookings.filter(
-                Q(booking_date__gt=now.date()) |
-                Q(booking_date=now.date(), end_time__gte=now.time())
-            )
+    #     # Apply status filter
+    #     if status_param == 'past':
+    #         bookings = bookings.filter(
+    #             Q(booking_date__lt=now.date()) |
+    #             Q(booking_date=now.date(), end_time__lt=now.time())
+    #         )
+    #     else:
+    #         bookings = bookings.filter(
+    #             Q(booking_date__gt=now.date()) |
+    #             Q(booking_date=now.date(), end_time__gte=now.time())
+    #         )
 
-        # Apply search filter
-        if search:
-            bookings = bookings.filter(
-                Q(court__location_id__address_1__icontains=search) |
-                Q(court__location_id__address_2__icontains=search) |
-                Q(court__location_id__address_3__icontains=search) |
-                Q(court__location_id__address_4__icontains=search)
-            )
+    #     # Apply search filter
+    #     if search:
+    #         bookings = bookings.filter(
+    #             Q(court__location_id__address_1__icontains=search) |
+    #             Q(court__location_id__address_2__icontains=search) |
+    #             Q(court__location_id__address_3__icontains=search) |
+    #             Q(court__location_id__address_4__icontains=search)
+    #         )
 
-        bookings = bookings.order_by('booking_date', 'start_time')
+    #     bookings = bookings.order_by('booking_date', 'start_time')
 
-        # Apply pagination
-        paginator = LargeResultsSetPagination()
-        page = paginator.paginate_queryset(bookings, request)
-        serializer = AdminCourtBookingSerializer(page, many=True)
+    #     # Apply pagination
+    #     paginator = LargeResultsSetPagination()
+    #     page = paginator.paginate_queryset(bookings, request)
+    #     serializer = AdminCourtBookingSerializer(page, many=True)
 
-        return Response({
-            "count": paginator.page.paginator.count,
-            "next": paginator.get_next_link(),
-            "previous": paginator.get_previous_link(),
-            "message": "Court bookings fetched successfully.",
-            "status_code": 200,
-            "results": serializer.data
-        })
+    #     return Response({
+    #         "count": paginator.page.paginator.count,
+    #         "next": paginator.get_next_link(),
+    #         "previous": paginator.get_previous_link(),
+    #         "message": "Court bookings fetched successfully.",
+    #         "status_code": 200,
+    #         "results": serializer.data
+    #     })
     
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
