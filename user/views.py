@@ -129,13 +129,22 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        location_id = serializer.validated_data.get('location')  # Safe fetch
+        location_id = serializer.validated_data.get('location')
 
         user = authenticate(request, username=email, password=password)
 
         if user is not None:
-            # ✅ Enforce location only for Coach, Player, Court (user_type > 1)
-            if user.user_type > 1:
+            # ✅ Location logic for Admins (user_type == 1)
+            if user.user_type == 1:
+                if location_id:  # Location was passed by admin
+                    if not user.location or str(user.location.id) != str(location_id):
+                        return Response({
+                            'message': 'You are not assigned to this location. First please register for this location.',
+                            'code': 400
+                        }, status=status.HTTP_200_OK)
+
+            # ✅ Location logic for other users (user_type > 1)
+            elif user.user_type > 1:
                 if not location_id:
                     return Response({
                         'message': 'Location is required.',
@@ -144,7 +153,7 @@ class UserLoginView(APIView):
 
                 if not user.location or str(user.location.id) != str(location_id):
                     return Response({
-                        'message': 'You are not assigned to this location. First please Register for this Location',
+                        'message': 'You are not assigned to this location. First please register for this location.',
                         'code': 400
                     }, status=status.HTTP_200_OK)
 
@@ -171,6 +180,7 @@ class UserLoginView(APIView):
             'message': 'Incorrect Username or Password',
             'code': "400"
         }, status=status.HTTP_200_OK)
+
 
 
 
