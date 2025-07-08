@@ -135,7 +135,7 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
         location_id = validated_data.pop('location_id')
 
         user = User(**validated_data)
-        user.location_id = location_id 
+        user.locations_id = location_id 
         user.set_password(password)
         user.save()
         return user

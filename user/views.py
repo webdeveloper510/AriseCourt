@@ -489,10 +489,11 @@ class AdminViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         location_id = request.data.get("location_id")
 
+        # ✅ Corrected field name to match model (locations_id)
         if location_id:
             existing_admin = User.objects.filter(
                 user_type=1,  # Admin
-                location_id=location_id
+                locations_id=location_id
             ).exists()
 
             if existing_admin:
@@ -515,13 +516,15 @@ class AdminViewSet(viewsets.ModelViewSet):
         self.perform_create(serializer)
         user = serializer.instance
 
+        # ✅ Make user verified
         user.is_verified = True
         user.save()
 
-        if user.location:
-            Location.objects.filter(id=user.location.id).update(status=True)
+        # ✅ Update location status only if assigned
+        if user.locations:
+            Location.objects.filter(id=user.locations.id).update(status=True)
 
-
+        # ✅ Set access flag
         AdminPermission.objects.create(user=user, access_flag=str(access_flag))
 
         response_data = serializer.data
@@ -532,6 +535,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_201_CREATED,
             "data": response_data
         }, status=status.HTTP_201_CREATED)
+
 
 
     # def get(self, request):
@@ -595,16 +599,17 @@ class AdminViewSet(viewsets.ModelViewSet):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
 
-        # 🔒 Check if the new location is already assigned to another admin
         location_id = request.data.get("location_id")
-        if location_id and str(instance.location_id) != str(location_id):
+
+        # ✅ Correct the location field to match your model: `locations`
+        if location_id and str(instance.locations_id) != str(location_id):
             # Only restrict if the location is active (status=True)
             conflict_location = Location.objects.filter(id=location_id, status=True).first()
 
             if conflict_location:
                 location_conflict = User.objects.filter(
                     user_type=1,
-                    location_id=location_id
+                    locations_id=location_id
                 ).exclude(id=instance.id).exists()
 
                 if location_conflict:
@@ -636,6 +641,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
 
 
     def destroy(self, request, *args, **kwargs):
