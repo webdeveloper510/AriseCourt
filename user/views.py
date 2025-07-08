@@ -1291,19 +1291,34 @@ class MyLocationView(APIView):
 class UsersInMyLocationView(APIView):
     permission_classes = [IsAuthenticated]
 
+
     def get(self, request):
         current_user = request.user
 
-        if not current_user.locations:
+        if not current_user.locations.exists():
             return Response({'error': 'You are not assigned to any location.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        users = User.objects.filter(locations=current_user.locations).exclude(id=current_user.id)
+        users = User.objects.filter(locations__in=current_user.locations.all()).exclude(id=current_user.id).distinct()
 
         paginator = LargeResultsSetPagination()
         paginated_users = paginator.paginate_queryset(users, request)
         serializer = UserLoginFieldsSerializer(paginated_users, many=True)
 
         return paginator.get_paginated_response(serializer.data)
+
+    # def get(self, request):
+    #     current_user = request.user
+
+    #     if not current_user.locations:
+    #         return Response({'error': 'You are not assigned to any location.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     users = User.objects.filter(locations=current_user.locations).exclude(id=current_user.id)
+
+    #     paginator = LargeResultsSetPagination()
+    #     paginated_users = paginator.paginate_queryset(users, request)
+    #     serializer = UserLoginFieldsSerializer(paginated_users, many=True)
+
+    #     return paginator.get_paginated_response(serializer.data)
 
 
 
