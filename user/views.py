@@ -1356,25 +1356,28 @@ class AdminCourtBookingListView(APIView):
         if admin.user_type != 1:
             raise PermissionDenied("Only admins can access this data.")
 
-        locations = admin.locations.all()
-        if not locations.exists():
+        # ✅ Get assigned locations (ManyToMany)
+        assigned_locations = admin.locations.all()
+
+        if not assigned_locations.exists():
             return Response({
                 "message": "Admin is not assigned to any location.",
                 "status_code": 400
             }, status=400)
 
-        # Get courts in these locations
-        court_ids = Court.objects.filter(location__in=locations).values_list('id', flat=True)
+        # ✅ Get Court IDs in those locations
+        court_ids = Court.objects.filter(location_id__in=assigned_locations).values_list('id', flat=True)
 
         status_param = request.query_params.get('status')
         search = request.query_params.get('search')
         now = timezone.now()
 
+        # ✅ Filter bookings
         bookings = CourtBooking.objects.filter(
             court_id__in=court_ids
         ).select_related('court', 'user')
 
-        # Status filter
+        # ✅ Filter by time
         if status_param == 'past':
             bookings = bookings.filter(
                 Q(booking_date__lt=now.date()) |
@@ -1386,7 +1389,7 @@ class AdminCourtBookingListView(APIView):
                 Q(booking_date=now.date(), end_time__gte=now.time())
             )
 
-        # Search filter
+        # ✅ Search
         if search:
             bookings = bookings.filter(
                 Q(user__first_name__icontains=search) |
@@ -1395,8 +1398,8 @@ class AdminCourtBookingListView(APIView):
                 Q(court__court_number__icontains=search)
             )
 
+        # ✅ Sort and paginate
         bookings = bookings.order_by('booking_date', 'start_time')
-
         paginator = LargeResultsSetPagination()
         page = paginator.paginate_queryset(bookings, request)
         serializer = AdminCourtBookingSerializer(page, many=True)
