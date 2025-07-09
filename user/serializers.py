@@ -166,6 +166,11 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
             return permission.access_flag
         except AdminPermission.DoesNotExist:
             return None
+        
+    def update(self, instance, validated_data):
+        validated_data.pop('locations', None)
+        validated_data.pop('location_id', None)
+        return super().update(instance, validated_data)
 
     
 

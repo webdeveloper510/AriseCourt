@@ -556,12 +556,14 @@ class AdminViewSet(viewsets.ModelViewSet):
             "data": response_data
         }, status=status.HTTP_201_CREATED)
     
+        
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
 
         location_id = request.data.get("location_id")
 
+        # ✅ Handle location assignment if location_id is provided
         if location_id:
             try:
                 location_id = int(location_id)
@@ -571,7 +573,7 @@ class AdminViewSet(viewsets.ModelViewSet):
                     "code": 400
                 }, status=status.HTTP_200_OK)
 
-            # ✅ Check if location is already active for another admin
+            # ✅ Check if the location is active for another admin
             conflict_location = Location.objects.filter(id=location_id, status=True).first()
             if conflict_location:
                 location_conflict = User.objects.filter(
@@ -585,23 +587,22 @@ class AdminViewSet(viewsets.ModelViewSet):
                         "code": 400
                     }, status=status.HTTP_200_OK)
 
-            # ✅ Deactivate previous location(s), except the one being reassigned
-            old_locations = instance.locations.exclude(id=location_id)
-            for old_location in old_locations:
-                old_location.status = False
-                old_location.save()
+            # ✅ Deactivate all previously assigned locations (except current)
+            instance.locations.exclude(id=location_id).update(status=False)
 
-            # ✅ Clear and assign new location
+            # ✅ Clear old, assign new location properly
             instance.locations.clear()
-            instance.locations.add(location_id)
+            location_obj = get_object_or_404(Location, id=location_id)
+            instance.locations.add(location_obj)
 
-            # ✅ Activate the newly assigned location
-            Location.objects.filter(id=location_id).update(status=True)
+            # ✅ Activate the new location
+            location_obj.status = True
+            location_obj.save()
 
-            # ✅ Refresh instance to reflect updated locations in serializer
+            # ✅ Refresh instance
             instance.refresh_from_db()
 
-        # ✅ Update other fields
+        # ✅ Update other fields via serializer
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -612,7 +613,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             instance.set_password(password)
             instance.save()
 
-        # ✅ Update or create AdminPermission
+        # ✅ Update or create admin permission
         access_flag = request.data.get("access_flag")
         if access_flag is not None:
             AdminPermission.objects.update_or_create(
@@ -625,19 +626,6 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
     def destroy(self, request, *args, **kwargs):
