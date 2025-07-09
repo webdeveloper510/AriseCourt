@@ -191,14 +191,14 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        location_id = serializer.validated_data.get('location')  # Optional for SuperAdmin
+        location_id = serializer.validated_data.get('location')  # Optional
 
         user = authenticate(request, username=email, password=password)
 
         if user is None:
             return Response({
                 'message': 'Incorrect Username or Password',
-                'code': 400
+                'code': "400"
             }, status=status.HTTP_200_OK)
 
         if not user.is_verified:
@@ -207,43 +207,52 @@ class UserLoginView(APIView):
                 'code': 400
             }, status=status.HTTP_200_OK)
 
-        # ✅ SuperAdmin
+        # ✅ SuperAdmin (user_type == 0) logic
         if user.user_type == 0:
-            # location_id is optional
             if location_id:
                 location, _ = Location.objects.get_or_create(
                     id=location_id,
                     defaults={'name': f'Location {location_id}'}
                 )
-                if not user.locations.filter(id=location.id).exists():
+                if not user.locations.filter(id=location_id).exists():
                     user.locations.add(location)
 
-        # ✅ All other users
+        # ✅ Admin (user_type == 1) logic
+        elif user.user_type == 1:
+            if location_id:
+                # Assign if not already assigned
+                if not user.locations.filter(id=location_id).exists():
+                    return Response({
+                        'message': 'You are not assigned to this location.',
+                        'code': 400
+                    }, status=status.HTTP_200_OK)
+            # Location is optional for admin
+
+        # ❌ All others (Coach, Player, Court) must have assigned location
         else:
-            # Must provide location
             if not location_id:
                 return Response({
                     'message': 'Location is required for this user type.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
-            # Check if user is assigned to the given location
             if not user.locations.filter(id=location_id).exists():
                 return Response({
                     'message': 'You are not assigned to this location.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
-        # ✅ Passed all checks — return token and user data
+        # ✅ Generate tokens
         token = get_tokens_for_user(user)
         user_data = UserLoginFieldsSerializer(user).data
         user_data['access_token'] = token['access']
 
         return Response({
-            'code': 200,
-            'message': 'Login Successful',
+            'code': '200',
+            'message': 'Login Successfully',
             'data': user_data
         }, status=status.HTTP_200_OK)
+
 
    
 
