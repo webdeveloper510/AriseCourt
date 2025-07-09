@@ -1188,13 +1188,12 @@ class LocationLoginView(APIView):
         email = request.data.get("email", "").strip()
         password = request.data.get("password")
         location_id = request.data.get("location_id")
-        court_number = request.data.get("court_number")
-        booking_date_str = request.data.get("booking_date")
+        court_id = request.data.get("court_id")
 
         # ✅ Validate required fields
-        if not (email and password and location_id and court_number and booking_date_str):
+        if not (email and password and location_id and court_id):
             return Response({
-                "message": "Email, password, location_id, court_number, and booking_date are required.",
+                "message": "Email, password, location_id, and court_id are required.",
                 "code": 400
             }, status=200)
 
@@ -1207,14 +1206,17 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
-        # ✅ Parse booking_date
+        # ✅ Parse court_id
         try:
-            booking_date = datetime.strptime(booking_date_str, "%Y-%m-%d").date()
-        except ValueError:
+            court_id = int(court_id)
+        except (TypeError, ValueError):
             return Response({
-                "message": "Invalid booking_date format. Use YYYY-MM-DD.",
+                "message": "Invalid court_id format.",
                 "code": 400
             }, status=200)
+
+        # ✅ Assume today's date
+        booking_date = date.today()
 
         # ✅ Get user assigned to location
         try:
@@ -1230,15 +1232,11 @@ class LocationLoginView(APIView):
             return Response({
                 "message": "Incorrect password.",
                 "code": 400
-
-
-
-                
             }, status=200)
 
-        # ✅ Get court by court_number and location
+        # ✅ Get court by court_id and location
         try:
-            court = Court.objects.get(location_id=location_id, court_number=court_number)
+            court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
             return Response({
                 "message": "Invalid court for this location.",
@@ -1257,10 +1255,8 @@ class LocationLoginView(APIView):
 
         base_time = datetime.combine(booking_date, now.time())
 
-        # ✅ Get bookings for this court on booking_date
         bookings = CourtBooking.objects.filter(court=court, booking_date=booking_date)
 
-        # ✅ Build slot list
         slots = []
         for i in range(4):
             slot_start = base_time + timedelta(hours=i)
@@ -1269,13 +1265,7 @@ class LocationLoginView(APIView):
             if slot_end.time() > end_time:
                 break
 
-            booked = None
-            for b in bookings:
-                b_start = datetime.combine(booking_date, b.start_time)
-                b_end = datetime.combine(booking_date, b.end_time)
-                if b_start <= slot_start < b_end:
-                    booked = b
-                    break
+            booked = next((b for b in bookings if datetime.combine(booking_date, b.start_time) <= slot_start < datetime.combine(booking_date, b.end_time)), None)
 
             if booked:
                 slots.append({
