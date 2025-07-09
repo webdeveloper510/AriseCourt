@@ -200,40 +200,47 @@ class UserLoginView(APIView):
                 'message': 'Incorrect Username or Password',
                 'code': "400"
             }, status=status.HTTP_200_OK)
-        
+
         if not user.is_verified:
             return Response({
                 'message': 'Email not verified. Please verify your email before logging in.',
                 'code': 400
             }, status=status.HTTP_200_OK)
 
-        # ✅ SuperAdmin logic
+        # ✅ SuperAdmin (user_type == 0) logic
         if user.user_type == 0:
             if location_id:
-                # Create or fetch the location
-                location, created = Location.objects.get_or_create(
+                location, _ = Location.objects.get_or_create(
                     id=location_id,
                     defaults={'name': f'Location {location_id}'}
                 )
-                # Optionally, assign it to the superadmin if not already assigned
                 if not user.locations.filter(id=location_id).exists():
                     user.locations.add(location)
 
-        # ✅ Other user logic (Admin, Coach, etc.)
-        elif user.user_type > 0:
+        # ✅ Admin (user_type == 1) logic
+        elif user.user_type == 1:
             if location_id:
+                # Assign if not already assigned
                 if not user.locations.filter(id=location_id).exists():
                     return Response({
                         'message': 'You are not assigned to this location.',
                         'code': 400
                     }, status=status.HTTP_200_OK)
+            # Location is optional for admin
 
-            # ✅ Email verification check
-                if not user.is_verified:
-                    return Response({
-                        'message': 'Email not verified. Please verify your email before logging in.',
-                        'code': 400
-                    }, status=status.HTTP_200_OK)
+        # ❌ All others (Coach, Player, Court) must have assigned location
+        else:
+            if not location_id:
+                return Response({
+                    'message': 'Location is required for this user type.',
+                    'code': 400
+                }, status=status.HTTP_200_OK)
+
+            if not user.locations.filter(id=location_id).exists():
+                return Response({
+                    'message': 'You are not assigned to this location.',
+                    'code': 400
+                }, status=status.HTTP_200_OK)
 
         # ✅ Generate tokens
         token = get_tokens_for_user(user)
@@ -245,6 +252,7 @@ class UserLoginView(APIView):
             'message': 'Login Successfully',
             'data': user_data
         }, status=status.HTTP_200_OK)
+
 
 
    
@@ -577,20 +585,23 @@ class AdminViewSet(viewsets.ModelViewSet):
                         "code": 400
                     }, status=status.HTTP_200_OK)
 
-            # ✅ Deactivate previous location(s)
-            old_locations = instance.locations.all()
+            # ✅ Deactivate previous location(s), except the one being reassigned
+            old_locations = instance.locations.exclude(id=location_id)
             for old_location in old_locations:
                 old_location.status = False
                 old_location.save()
 
-            # ✅ Clear existing and assign new location
+            # ✅ Clear and assign new location
             instance.locations.clear()
             instance.locations.add(location_id)
 
             # ✅ Activate the newly assigned location
             Location.objects.filter(id=location_id).update(status=True)
 
-        # ✅ Update other user fields
+            # ✅ Refresh instance to reflect updated locations in serializer
+            instance.refresh_from_db()
+
+        # ✅ Update other fields
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -614,9 +625,6 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
-
-
-
 
 
 
@@ -1344,11 +1352,8 @@ class UsersInMyLocationView(APIView):
 
     #     return paginator.get_paginated_response(serializer.data)
 
-
-
 class AdminCourtBookingListView(APIView):
     permission_classes = [IsAuthenticated]
-
 
     def get(self, request):
         admin = request.user
@@ -1356,40 +1361,47 @@ class AdminCourtBookingListView(APIView):
         if admin.user_type != 1:
             raise PermissionDenied("Only admins can access this data.")
 
-        # ✅ Get assigned locations (ManyToMany)
-        assigned_locations = admin.locations.all()
+        # ✅ Step 1: Get location IDs assigned to admin
+        assigned_location_ids = admin.locations.values_list('id', flat=True)
 
-        if not assigned_locations.exists():
+        if not assigned_location_ids:
             return Response({
                 "message": "Admin is not assigned to any location.",
                 "status_code": 400
             }, status=400)
 
-        # ✅ Get Court IDs in those locations
-        court_ids = Court.objects.filter(location_id__in=assigned_locations).values_list('id', flat=True)
+        # ✅ Step 2: Get courts in those locations
+        court_ids = Court.objects.filter(location_id__in=assigned_location_ids).values_list('id', flat=True)
 
-        status_param = request.query_params.get('status')
-        search = request.query_params.get('search')
-        now = timezone.now()
+        if not court_ids:
+            return Response({
+                "message": "No courts found for assigned locations.",
+                "status_code": 200,
+                "data": []
+            }, status=200)
 
-        # ✅ Filter bookings
+        # ✅ Step 3: Filter bookings
         bookings = CourtBooking.objects.filter(
             court_id__in=court_ids
         ).select_related('court', 'user')
 
-        # ✅ Filter by time
+        # ✅ Step 4: Time-based filter (past or upcoming)
+        status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
+        now = timezone.now()
+
         if status_param == 'past':
             bookings = bookings.filter(
                 Q(booking_date__lt=now.date()) |
                 Q(booking_date=now.date(), end_time__lt=now.time())
             )
-        else:
+        elif status_param == 'upcoming':
             bookings = bookings.filter(
                 Q(booking_date__gt=now.date()) |
                 Q(booking_date=now.date(), end_time__gte=now.time())
             )
 
-        # ✅ Search
+        # ✅ Step 5: Optional search filter
+        search = request.query_params.get('search')
         if search:
             bookings = bookings.filter(
                 Q(user__first_name__icontains=search) |
@@ -1398,7 +1410,7 @@ class AdminCourtBookingListView(APIView):
                 Q(court__court_number__icontains=search)
             )
 
-        # ✅ Sort and paginate
+        # ✅ Step 6: Order and paginate
         bookings = bookings.order_by('booking_date', 'start_time')
         paginator = LargeResultsSetPagination()
         page = paginator.paginate_queryset(bookings, request)
@@ -1409,6 +1421,71 @@ class AdminCourtBookingListView(APIView):
             "status_code": 200,
             "data": serializer.data
         })
+
+
+# class AdminCourtBookingListView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+
+#     def get(self, request):
+#         admin = request.user
+
+#         if admin.user_type != 1:
+#             raise PermissionDenied("Only admins can access this data.")
+
+#         # ✅ Get assigned locations (ManyToMany)
+#         assigned_locations = admin.locations.all()
+
+#         if not assigned_locations.exists():
+#             return Response({
+#                 "message": "Admin is not assigned to any location.",
+#                 "status_code": 400
+#             }, status=400)
+
+#         # ✅ Get Court IDs in those locations
+#         court_ids = Court.objects.filter(location_id__in=assigned_locations).values_list('id', flat=True)
+
+#         status_param = request.query_params.get('status')
+#         search = request.query_params.get('search')
+#         now = timezone.now()
+
+#         # ✅ Filter bookings
+#         bookings = CourtBooking.objects.filter(
+#             court_id__in=court_ids
+#         ).select_related('court', 'user')
+
+#         # ✅ Filter by time
+#         if status_param == 'past':
+#             bookings = bookings.filter(
+#                 Q(booking_date__lt=now.date()) |
+#                 Q(booking_date=now.date(), end_time__lt=now.time())
+#             )
+#         else:
+#             bookings = bookings.filter(
+#                 Q(booking_date__gt=now.date()) |
+#                 Q(booking_date=now.date(), end_time__gte=now.time())
+#             )
+
+#         # ✅ Search
+#         if search:
+#             bookings = bookings.filter(
+#                 Q(user__first_name__icontains=search) |
+#                 Q(user__last_name__icontains=search) |
+#                 Q(user__email__icontains=search) |
+#                 Q(court__court_number__icontains=search)
+#             )
+
+#         # ✅ Sort and paginate
+#         bookings = bookings.order_by('booking_date', 'start_time')
+#         paginator = LargeResultsSetPagination()
+#         page = paginator.paginate_queryset(bookings, request)
+#         serializer = AdminCourtBookingSerializer(page, many=True)
+
+#         return paginator.get_paginated_response({
+#             "message": "Court bookings fetched successfully.",
+#             "status_code": 200,
+#             "data": serializer.data
+#         })
 
     # def get(self, request):
     #     admin = request.user
