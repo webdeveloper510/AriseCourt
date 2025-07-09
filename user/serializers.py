@@ -168,6 +168,19 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
             return None
         
     def update(self, instance, validated_data):
+        location_id = self.context['request'].data.get('location_id')
+        if location_id:
+            try:
+                location_obj = Location.objects.get(id=location_id)
+                # Remove old ones and assign new location
+                instance.locations.set([location_obj])
+                # Activate this location and deactivate others
+                Location.objects.exclude(id=location_obj.id).update(status=False)
+                location_obj.status = True
+                location_obj.save()
+            except Location.DoesNotExist:
+                pass  # Optionally handle the case where the location is not found
+
         validated_data.pop('locations', None)
         validated_data.pop('location_id', None)
         return super().update(instance, validated_data)

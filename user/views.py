@@ -1186,119 +1186,6 @@ class PaymentSuccessAPIView(APIView):
 
 
 
-# class LocationLoginView(APIView):
-#     def post(self, request):
-#         email = request.data.get("email", "").strip()
-#         password = request.data.get("password")
-#         location_id = request.data.get("location_id")
-#         court_id = request.data.get("court_id")
-
-#         # ✅ Validate required fields
-#         if not (email and password and location_id and court_id):
-#             return Response({
-#                 "message": "Email, password, location_id, and court_id are required.",
-#                 "code": 400
-#             }, status=200)
-
-#         # ✅ Validate location_id
-#         try:
-#             location_id = int(location_id)
-#         except (TypeError, ValueError):
-#             return Response({
-#                 "message": "Invalid location_id format.",
-#                 "code": 400
-#             }, status=200)
-
-#         # ✅ Parse court_id
-#         try:
-#             court_id = int(court_id)
-#         except (TypeError, ValueError):
-#             return Response({
-#                 "message": "Invalid court_id format.",
-#                 "code": 400
-#             }, status=200)
-
-#         # ✅ Assume today's date
-#         booking_date = date.today()
-
-#         # ✅ Get user assigned to location
-#         try:
-#             user = User.objects.get(email__iexact=email, locations__id=location_id)
-#         except User.DoesNotExist:
-#             return Response({
-#                 "message": "Invalid email or location.",
-#                 "code": 400
-#             }, status=200)
-
-#         # ✅ Check password
-#         if not check_password(password, user.password):
-#             return Response({
-#                 "message": "Incorrect password.",
-#                 "code": 400
-#             }, status=200)
-
-#         # ✅ Get court by court_id and location
-#         try:
-#             court = Court.objects.get(id=court_id, location_id=location_id)
-#         except Court.DoesNotExist:
-#             return Response({
-#                 "message": "Invalid court for this location.",
-#                 "code": 400
-#             }, status=200)
-
-#         # ✅ Setup timing
-#         start_time = court.start_time or time(9, 0)
-#         end_time = court.end_time or time(21, 0)
-
-#         now = datetime.now()
-#         if now.minute > 0:
-#             now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-#         else:
-#             now = now.replace(minute=0, second=0, microsecond=0)
-
-#         base_time = datetime.combine(booking_date, now.time())
-
-#         bookings = CourtBooking.objects.filter(court=court, booking_date=booking_date)
-
-#         slots = []
-#         for i in range(4):
-#             slot_start = base_time + timedelta(hours=i)
-#             slot_end = slot_start + timedelta(hours=1)
-
-#             if slot_end.time() > end_time:
-#                 break
-
-#             booked = next((b for b in bookings if datetime.combine(booking_date, b.start_time) <= slot_start < datetime.combine(booking_date, b.end_time)), None)
-
-#             if booked:
-#                 slots.append({
-#                     "code": i + 1,
-#                     "court_id": court.id,
-#                     "location_id": court.location_id.id,
-#                     "court_number": court.court_number,
-#                     "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
-#                     "status": "BOOKED",
-#                     "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
-#                     "start_time": booked.start_time.strftime("%H:%M"),
-#                     "end_time": booked.end_time.strftime("%H:%M")
-#                 })
-#             else:
-#                 slots.append({
-#                     "code": i + 1,
-#                     "court_id": court.id,
-#                     "location_id": court.location_id.id,
-#                     "court_number": court.court_number,
-#                     "booking_date": booking_date.strftime("%Y-%m-%d"),
-#                     "status": "OPEN",
-#                     "start_time": slot_start.strftime("%H:%M"),
-#                     "end_time": slot_end.strftime("%H:%M")
-#                 })
-
-#         return Response({
-#             "slots": slots,
-#             "location_id": court.location_id.id
-#         }, status=200)
-
 class LocationLoginView(APIView):
     def post(self, request):
         email = request.data.get("email", "").strip()
@@ -1331,8 +1218,10 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
+        # ✅ Assume today's date
         booking_date = date.today()
 
+        # ✅ Get user assigned to location
         try:
             user = User.objects.get(email__iexact=email, locations__id=location_id)
         except User.DoesNotExist:
@@ -1341,12 +1230,14 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
+        # ✅ Check password
         if not check_password(password, user.password):
             return Response({
                 "message": "Incorrect password.",
                 "code": 400
             }, status=200)
 
+        # ✅ Get court by court_id and location
         try:
             court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
@@ -1355,6 +1246,7 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
+        # ✅ Setup timing
         start_time = court.start_time or time(9, 0)
         end_time = court.end_time or time(21, 0)
 
@@ -1376,7 +1268,10 @@ class LocationLoginView(APIView):
             if slot_end.time() > end_time:
                 break
 
-            booked = next((b for b in bookings if datetime.combine(booking_date, b.start_time) <= slot_start < datetime.combine(booking_date, b.end_time)), None)
+            booked = next(
+                (b for b in bookings if datetime.combine(booking_date, b.start_time) <= slot_start < datetime.combine(booking_date, b.end_time)),
+                None
+            )
 
             if booked:
                 slots.append({
@@ -1391,10 +1286,19 @@ class LocationLoginView(APIView):
                     "end_time": booked.end_time.strftime("%H:%M")
                 })
 
+        # ✅ If no slots are booked
+        if not slots:
+            return Response({
+                "message": "No slots are booked at this time.",
+                "code": 204
+            }, status=200)
+
         return Response({
-            "slots": slots,  # 🟢 Only booked slots
+            "slots": slots,
             "location_id": court.location_id.id
         }, status=200)
+
+
 
 
 
