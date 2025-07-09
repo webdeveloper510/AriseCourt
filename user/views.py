@@ -247,6 +247,7 @@ class UserLoginView(APIView):
 
    
 
+
 class VerifyEmailView(View):
     def get(self,request, uuid):
         user = get_object_or_404(User, uuid=uuid)
@@ -557,14 +558,18 @@ class AdminViewSet(viewsets.ModelViewSet):
 
         location_obj = None
 
+        # ✅ Validate and fetch location if provided
         if location_id:
             try:
                 location_id = int(location_id)
                 location_obj = get_object_or_404(Location, id=location_id)
             except (ValueError, TypeError):
-                return Response({"message": "Invalid location ID.", "code": 400}, status=status.HTTP_200_OK)
+                return Response({
+                    "message": "Invalid location ID.",
+                    "code": 400
+                }, status=status.HTTP_200_OK)
 
-            # Check if location already active for another admin
+            # ✅ Check if location already assigned to another admin
             is_conflict = User.objects.filter(
                 user_type=1,
                 locations__id=location_id
@@ -576,7 +581,7 @@ class AdminViewSet(viewsets.ModelViewSet):
                     "code": 400
                 }, status=status.HTTP_200_OK)
 
-        # ✅ Update other fields via serializer, but exclude location
+        # ✅ Update other fields via serializer (except location)
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
@@ -586,30 +591,33 @@ class AdminViewSet(viewsets.ModelViewSet):
             instance.set_password(password)
             instance.save()
 
-        # ✅ Assign new location if provided
+        # ✅ Assign location if valid
         if location_obj:
             # Deactivate old locations
             instance.locations.exclude(id=location_obj.id).update(status=False)
 
-            # Clear and assign
-            instance.locations.set([location_obj])  # 💥 cleaner and reliable
+            # Clear and assign new one
+            instance.locations.set([location_obj])
+
+            # Activate the new location
             location_obj.status = True
             location_obj.save()
 
-        # ✅ Update or create AdminPermission
+        # ✅ Update or create admin permission
         if access_flag is not None:
             AdminPermission.objects.update_or_create(
                 user=instance,
                 defaults={"access_flag": str(access_flag)}
             )
 
-        # ✅ Final refresh
+        # ✅ Refresh and return updated data
         instance.refresh_from_db()
+        response_data = self.get_serializer(instance).data
 
         return Response({
             "message": "Admin updated successfully.",
             "status_code": status.HTTP_200_OK,
-            "data": self.get_serializer(instance).data
+            "data": response_data
         }, status=status.HTTP_200_OK)
 
 
@@ -1360,10 +1368,13 @@ class AdminCourtBookingListView(APIView):
                 "data": []
             }, status=200)
 
-        # ✅ Step 3: Filter bookings
+        # ✅ Step 3: Filter bookings:
+        # - Court must belong to admin's location
+        # - User must also be assigned to that same location
         bookings = CourtBooking.objects.filter(
-            court_id__in=court_ids
-        ).select_related('court', 'user')
+            court_id__in=court_ids,
+            user__locations__id__in=assigned_location_ids
+        ).select_related('court', 'user').distinct()
 
         # ✅ Step 4: Time-based filter (past or upcoming)
         status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
@@ -1379,7 +1390,6 @@ class AdminCourtBookingListView(APIView):
                 Q(booking_date__gt=now.date()) |
                 Q(booking_date=now.date(), end_time__gte=now.time())
             )
-
 
         # ✅ Step 5: Optional search filter
         search = request.query_params.get('search')
@@ -1402,6 +1412,7 @@ class AdminCourtBookingListView(APIView):
             "status_code": 200,
             "data": serializer.data
         })
+
 
 
 # class AdminCourtBookingListView(APIView):
