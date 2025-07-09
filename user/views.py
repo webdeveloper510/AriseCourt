@@ -1253,10 +1253,16 @@ class LocationLoginView(APIView):
         now = datetime.now()
         if now.minute > 0:
             now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+
+            print("###################", now)
         else:
             now = now.replace(minute=0, second=0, microsecond=0)
 
+            print("$$$$$$$$$$$$$$$$$$$", now)
+
         base_time = datetime.combine(booking_date, now.time())
+
+        print("@@@@@@@@@@@@@@@@@@@@@", base_time)
 
         bookings = CourtBooking.objects.filter(court=court, booking_date=booking_date)
 
