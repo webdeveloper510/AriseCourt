@@ -398,14 +398,15 @@ class CourtBookingReportSerializer(serializers.ModelSerializer):
     
 
 
-
 class AdminCourtBookingSerializer(serializers.ModelSerializer):
     court_number = serializers.CharField(source='court.court_number', read_only=True)
-    user_name = serializers.CharField(source='user.get_full_name', read_only=True)
+    user_first_name = serializers.CharField(source='user.first_name', read_only=True)
+    user_last_name = serializers.CharField(source='user.last_name', read_only=True)
     user_phone = serializers.CharField(source='user.phone', read_only=True)
     user_email = serializers.CharField(source='user.email', read_only=True)
     user_type = serializers.IntegerField(source='user.user_type', read_only=True)
     location_name = serializers.CharField(source='court.location_id.name', read_only=True)
+    location_address = serializers.SerializerMethodField()
 
     class Meta:
         model = CourtBooking
@@ -418,9 +419,25 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
             'total_price',
             'status',
             'court_number',
-            'user_name',
             'user_phone',
+            'user_first_name',
+            'user_last_name',
             'user_email',
             'user_type',
-            'location_name'
+            'location_name',
+            'location_address'
         ]
+
+    def get_location_address(self, obj):
+        location = obj.court.location_id
+        parts = [
+            location.address_1,
+            location.address_2,
+            location.address_3,
+            location.address_4,
+            location.city,
+            location.state,
+            location.country
+        ]
+
+        return ", ".join(filter(None, map(str.strip, filter(None, parts))))
