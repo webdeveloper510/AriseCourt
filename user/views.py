@@ -191,14 +191,14 @@ class UserLoginView(APIView):
 
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        location_id = serializer.validated_data.get('location')  # Optional
+        location_id = serializer.validated_data.get('location')  # Optional for SuperAdmin
 
         user = authenticate(request, username=email, password=password)
 
         if user is None:
             return Response({
                 'message': 'Incorrect Username or Password',
-                'code': "400"
+                'code': 400
             }, status=status.HTTP_200_OK)
 
         if not user.is_verified:
@@ -207,56 +207,45 @@ class UserLoginView(APIView):
                 'code': 400
             }, status=status.HTTP_200_OK)
 
-        # ✅ SuperAdmin (user_type == 0) logic
+        # ✅ SuperAdmin
         if user.user_type == 0:
+            # location_id is optional
             if location_id:
                 location, _ = Location.objects.get_or_create(
                     id=location_id,
                     defaults={'name': f'Location {location_id}'}
                 )
-                if not user.locations.filter(id=location_id).exists():
+                if not user.locations.filter(id=location.id).exists():
                     user.locations.add(location)
 
-        # ✅ Admin (user_type == 1) logic
-        elif user.user_type == 1:
-            if location_id:
-                # Assign if not already assigned
-                if not user.locations.filter(id=location_id).exists():
-                    return Response({
-                        'message': 'You are not assigned to this location.',
-                        'code': 400
-                    }, status=status.HTTP_200_OK)
-            # Location is optional for admin
-
-        # ❌ All others (Coach, Player, Court) must have assigned location
+        # ✅ All other users
         else:
+            # Must provide location
             if not location_id:
                 return Response({
                     'message': 'Location is required for this user type.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
+            # Check if user is assigned to the given location
             if not user.locations.filter(id=location_id).exists():
                 return Response({
                     'message': 'You are not assigned to this location.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
-        # ✅ Generate tokens
+        # ✅ Passed all checks — return token and user data
         token = get_tokens_for_user(user)
         user_data = UserLoginFieldsSerializer(user).data
         user_data['access_token'] = token['access']
 
         return Response({
-            'code': '200',
-            'message': 'Login Successfully',
+            'code': 200,
+            'message': 'Login Successful',
             'data': user_data
         }, status=status.HTTP_200_OK)
 
-
-
    
-    
 
 class VerifyEmailView(View):
     def get(self,request, uuid):
@@ -556,76 +545,73 @@ class AdminViewSet(viewsets.ModelViewSet):
             "data": response_data
         }, status=status.HTTP_201_CREATED)
     
-        
+    
+
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
         instance = self.get_object()
 
         location_id = request.data.get("location_id")
+        access_flag = request.data.get("access_flag")
+        password = request.data.get("password")
 
-        # ✅ Handle location assignment if location_id is provided
+        location_obj = None
+
         if location_id:
             try:
                 location_id = int(location_id)
+                location_obj = get_object_or_404(Location, id=location_id)
             except (ValueError, TypeError):
+                return Response({"message": "Invalid location ID.", "code": 400}, status=status.HTTP_200_OK)
+
+            # Check if location already active for another admin
+            is_conflict = User.objects.filter(
+                user_type=1,
+                locations__id=location_id
+            ).exclude(id=instance.id).exists()
+
+            if is_conflict and location_obj.status:
                 return Response({
-                    "message": "Invalid location ID.",
+                    "message": "This location is already assigned to another admin.",
                     "code": 400
                 }, status=status.HTTP_200_OK)
 
-            # ✅ Check if the location is active for another admin
-            conflict_location = Location.objects.filter(id=location_id, status=True).first()
-            if conflict_location:
-                location_conflict = User.objects.filter(
-                    user_type=1,
-                    locations__id=location_id
-                ).exclude(id=instance.id).exists()
-
-                if location_conflict:
-                    return Response({
-                        "message": "This location is already assigned to another admin.",
-                        "code": 400
-                    }, status=status.HTTP_200_OK)
-
-            # ✅ Deactivate all previously assigned locations (except current)
-            instance.locations.exclude(id=location_id).update(status=False)
-
-            # ✅ Clear old, assign new location properly
-            instance.locations.clear()
-            location_obj = get_object_or_404(Location, id=location_id)
-            instance.locations.add(location_obj)
-
-            # ✅ Activate the new location
-            location_obj.status = True
-            location_obj.save()
-
-            # ✅ Refresh instance
-            instance.refresh_from_db()
-
-        # ✅ Update other fields via serializer
+        # ✅ Update other fields via serializer, but exclude location
         serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
 
-        # ✅ Update password if provided
-        password = request.data.get("password")
+        # ✅ Password update
         if password:
             instance.set_password(password)
             instance.save()
 
-        # ✅ Update or create admin permission
-        access_flag = request.data.get("access_flag")
+        # ✅ Assign new location if provided
+        if location_obj:
+            # Deactivate old locations
+            instance.locations.exclude(id=location_obj.id).update(status=False)
+
+            # Clear and assign
+            instance.locations.set([location_obj])  # 💥 cleaner and reliable
+            location_obj.status = True
+            location_obj.save()
+
+        # ✅ Update or create AdminPermission
         if access_flag is not None:
             AdminPermission.objects.update_or_create(
                 user=instance,
                 defaults={"access_flag": str(access_flag)}
             )
 
+        # ✅ Final refresh
+        instance.refresh_from_db()
+
         return Response({
             "message": "Admin updated successfully.",
             "status_code": status.HTTP_200_OK,
-            "data": serializer.data
+            "data": self.get_serializer(instance).data
         }, status=status.HTTP_200_OK)
+
 
 
     def destroy(self, request, *args, **kwargs):
