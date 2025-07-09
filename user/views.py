@@ -1230,6 +1230,10 @@ class LocationLoginView(APIView):
             return Response({
                 "message": "Incorrect password.",
                 "code": 400
+
+
+
+                
             }, status=200)
 
         # ✅ Get court by court_number and location
