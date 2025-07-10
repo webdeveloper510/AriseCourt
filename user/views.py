@@ -189,7 +189,7 @@ class UserLoginView(APIView):
         serializer = UserLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        email = serializer.validated_data['email'].strip().lower()
+        email = serializer.validated_data['email'].lower()
         password = serializer.validated_data['password']
         location_id = serializer.validated_data.get('location')  # Optional
 
@@ -1262,7 +1262,7 @@ class PaymentSuccessAPIView(APIView):
 
 class LocationLoginView(APIView):
     def post(self, request):
-        email = request.data.get("email", "").strip()
+        email = request.data.get("email", "")
         password = request.data.get("password")
         location_id = request.data.get("location_id")
         court_id = request.data.get("court_id")
@@ -1365,12 +1365,11 @@ class LocationLoginView(APIView):
                 })
 
         # ✅ If no slots are booked
-        if not slots:
             return Response({
-                "message": "No slots are booked at this time.",
-                "code": 204
+                "slots": [],
+                "location_id": court.location_id.id
             }, status=200)
-
+        
         return Response({
             "slots": slots,
             "location_id": court.location_id.id
