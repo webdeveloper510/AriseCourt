@@ -1259,7 +1259,6 @@ class PaymentSuccessAPIView(APIView):
 
 
 
-
 class LocationLoginView(APIView):
     def post(self, request):
         email = request.data.get("email", "")
@@ -1332,7 +1331,7 @@ class LocationLoginView(APIView):
 
         base_time = datetime.combine(booking_date, now.time())
 
-        # ✅ Updated line to include next 7 days of bookings
+        # ✅ Fetch bookings for next 7 days
         bookings = CourtBooking.objects.filter(
             court=court,
             booking_date__range=(booking_date, booking_date + timedelta(days=6))
@@ -1364,12 +1363,14 @@ class LocationLoginView(APIView):
                     "end_time": booked.end_time.strftime("%H:%M")
                 })
 
-        # ✅ If no slots are booked
+        # ✅ Return empty slots if none are booked
+        if not slots:
             return Response({
                 "slots": [],
                 "location_id": court.location_id.id
             }, status=200)
-        
+
+        # ✅ Return booked slots
         return Response({
             "slots": slots,
             "location_id": court.location_id.id
