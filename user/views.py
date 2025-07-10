@@ -1319,40 +1319,24 @@ class LocationLoginView(APIView):
                 "code": 400
             }, status=200)
 
-        # ✅ Setup timing
-        start_time = court.start_time or time(9, 0)
-        end_time = court.end_time or time(21, 0)
-
-        now = datetime.now()
-        if now.minute > 0:
-            now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-        else:
-            now = now.replace(minute=0, second=0, microsecond=0)
-
-        base_time = datetime.combine(booking_date, now.time())
-
-        # ✅ Fetch bookings for next 7 days
-        bookings = CourtBooking.objects.filter(
-            court=court,
-            booking_date__range=(booking_date, booking_date + timedelta(days=6))
-        )
-
+        # ✅ Fetch bookings from today to 6 days ahead
         slots = []
-        for i in range(4):
-            slot_start = base_time + timedelta(hours=i)
-            slot_end = slot_start + timedelta(hours=1)
+        added_booking_ids = set()
 
-            if slot_end.time() > end_time:
-                break
+        for day_offset in range(7):
+            target_date = booking_date + timedelta(days=day_offset)
 
-            booked = next(
-                (b for b in bookings if datetime.combine(b.booking_date, b.start_time) <= slot_start < datetime.combine(b.booking_date, b.end_time)),
-                None
-            )
+            daily_bookings = CourtBooking.objects.filter(
+                court=court,
+                booking_date=target_date
+            ).order_by("start_time")
 
-            if booked:
+            for booked in daily_bookings:
+                if booked.id in added_booking_ids:
+                    continue
+
                 slots.append({
-                    "code": i + 1,
+                    "code": len(slots) + 1,
                     "court_id": court.id,
                     "location_id": court.location_id.id,
                     "court_number": court.court_number,
@@ -1362,6 +1346,14 @@ class LocationLoginView(APIView):
                     "start_time": booked.start_time.strftime("%H:%M"),
                     "end_time": booked.end_time.strftime("%H:%M")
                 })
+
+                added_booking_ids.add(booked.id)
+
+                if len(slots) == 4:
+                    break
+
+            if len(slots) == 4:
+                break
 
         # ✅ Return empty slots if none are booked
         if not slots:
@@ -1375,6 +1367,7 @@ class LocationLoginView(APIView):
             "slots": slots,
             "location_id": court.location_id.id
         }, status=200)
+
 
 
 
