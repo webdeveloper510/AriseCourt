@@ -35,6 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
+        value = value.lower()  # ⬅️ Normalize to lowercase
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already registered.")
         return value
@@ -54,23 +55,12 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Passwords do not match.")
         return data
     
-    # def create(self, validated_data):
-    #     validated_data.pop('confirm_password')
-    #     password = validated_data.pop('password')
-    #     location_id = validated_data.pop('location_id')
-
-    #     # ✅ Set location using ID directly
-    #     user = User(**validated_data)
-    #     user.location_id = location_id
-    #     user.set_password(password)
-    #     user.save()
-    #     return user
-
 
     def create(self, validated_data):
         validated_data.pop('confirm_password')
         password = validated_data.pop('password')
         location_id = validated_data.pop('location_id')
+        validated_data['email'] = validated_data['email'].lower()
 
         user = User(**validated_data)
         user.set_password(password)
@@ -192,6 +182,9 @@ class UserLoginSerializer(serializers.Serializer):
     email = serializers.CharField(required=True)
     password = serializers.CharField(required=True)
     location = serializers.IntegerField(required=False)
+
+    def validate_email(self, value):
+        return value.lower()
 
 
 
