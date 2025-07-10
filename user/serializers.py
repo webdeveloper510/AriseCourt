@@ -35,7 +35,7 @@ class UserSerializer(serializers.ModelSerializer):
         return value
 
     def validate_email(self, value):
-        value = value.lower()  # ⬅️ Normalize to lowercase
+        value = value.lower()  
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("This email is already registered.")
         return value
@@ -191,6 +191,9 @@ class UserLoginSerializer(serializers.Serializer):
 class PasswordResetEmailSerializer(serializers.Serializer):
     email = serializers.EmailField()
 
+    def validate_email(self, value):
+        return value.strip().lower()
+
 
 
 class PasswordResetSerializer(serializers.Serializer):
@@ -201,6 +204,9 @@ class PasswordResetSerializer(serializers.Serializer):
     class Meta:
         model = PasswordResetOTP
         fields = '__all__'
+
+    def validate_email(self, value):
+        return value.strip().lower()
 
     def validate(self, data):
         if data['new_password'] != data['confirm_password']:
