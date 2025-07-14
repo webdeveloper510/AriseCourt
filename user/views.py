@@ -8,7 +8,7 @@ from .mail import MailUtils
 from datetime import date
 from django.db.models import Q
 from datetime import datetime
-from django.http import HttpResponse
+from django.http import HttpResponse 
 from django.shortcuts import get_object_or_404
 from django.views import View
 from django.contrib.auth.hashers import check_password
@@ -652,6 +652,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         search = request.query_params.get('search')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        location_address = request.query_params.get('location')
 
         # Get bookings based on user type
         if request.user.is_superuser:
@@ -668,6 +669,22 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 'court__location_id__address_4', output_field=CharField()
             )
         )
+
+        
+        bookings = bookings.annotate(
+            location_address=Concat(
+                'court__location_id__address_1', Value(' '),
+                'court__location_id__address_2', Value(' '),
+                'court__location_id__address_3', Value(' '),
+                'court__location_id__address_4',
+                output_field=CharField()
+            )
+        )
+
+        if location_address:
+            bookings = bookings.filter(
+                location_address__icontains=location_address.strip()
+            )
 
         # Filter by date range
         if start_date and end_date:
@@ -1176,86 +1193,7 @@ class PaymentSuccessAPIView(APIView):
 
         except Payment.DoesNotExist:
             return Response({"error": "Payment not found"}, status=404)
-        
-        
-# class LocationLoginView(APIView):
-#     def post(self, request):
-#         email        = request.data.get("email")
-#         password     = request.data.get("password")
-#         court_id     = request.data.get("court_id")
-#         location_id  = request.data.get("location_id")
 
-#         if not (email and password and location_id):
-#             return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
-
-#         # Get user by email and location
-#         try:
-#             user = User.objects.get(email=email, location_id=location_id)
-#         except User.DoesNotExist:
-#             return Response({"message": "Invalid email or location.", "code": 400}, status=200)
-
-#         # Check password
-#         if not check_password(password, user.password):
-#             return Response({"message": "Incorrect password.", "code": 400}, status=200)
-
-#         # Get court belonging to location
-#         try:
-#             court = Court.objects.get(id=court_id, location_id=location_id)
-#         except Court.DoesNotExist:
-#             return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
-
-#         # Set time slots logic
-#         start_time = court.start_time or time(9, 0)
-#         end_time = court.end_time or time(21, 0)
-
-#         now = datetime.now()
-#         if now.minute > 0:
-#             now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-#         else:
-#             now = now.replace(minute=0, second=0, microsecond=0)
-
-#         today = date.today()
-#         bookings = CourtBooking.objects.filter(court=court, booking_date=today)
-
-#         slots = []
-#         for i in range(4):
-#             slot_start = now + timedelta(hours=i)
-#             slot_end = slot_start + timedelta(hours=1)
-
-#             if slot_end.time() > end_time:
-#                 break
-
-#             booked = None
-#             for b in bookings:
-#                 b_start = datetime.combine(today, b.start_time)
-#                 b_end = datetime.combine(today, b.end_time)
-#                 if b_start <= slot_start < b_end:
-#                     booked = b
-#                     break
-
-#             if booked:
-#                 slots.append({
-#                     "code": i + 1,
-#                     "court_id": court.id,
-#                     "location_id": court.location_id.id,
-#                     "court_number":court.court_number,
-#                     "booking_date":bookings.booking_date,
-#                     "status": "BOOKED",
-#                     "user_name": booked.user.first_name,
-#                     "start_time": booked.start_time.strftime("%H:%M"),
-#                     "end_time": booked.end_time.strftime("%H:%M")
-#                 })
-#             else:
-#                 slots.append({
-#                     "code": i + 1,
-#                     "court_id": court.id,
-#                     "location_id": court.location_id.id,
-#                     "status": "OPEN",
-#                     "start_time": slot_start.strftime("%H:%M"),
-#                     "end_time": slot_end.strftime("%H:%M")
-#                 })
-
-#         return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
 
 
 
@@ -1394,23 +1332,9 @@ class UsersInMyLocationView(APIView):
 
 
 
-    # def get(self, request):
-    #     current_user = request.user
-
-    #     if not current_user.locations:
-    #         return Response({'error': 'You are not assigned to any location.'}, status=status.HTTP_400_BAD_REQUEST)
-
-    #     users = User.objects.filter(locations=current_user.locations).exclude(id=current_user.id)
-
-    #     paginator = LargeResultsSetPagination()
-    #     paginated_users = paginator.paginate_queryset(users, request)
-    #     serializer = UserLoginFieldsSerializer(paginated_users, many=True)
-
-    #     return paginator.get_paginated_response(serializer.data)
 
 class AdminCourtBookingListView(APIView):
     permission_classes = [IsAuthenticated]
-
 
 
     def get(self, request):
@@ -1458,6 +1382,16 @@ class AdminCourtBookingListView(APIView):
                 Q(booking_date__gt=now.date()) |
                 Q(booking_date=now.date(), end_time__gte=now.time())
             )
+
+        # # ✅ Step 4.5: Optional date range filter
+        # start_date = request.query_params.get('start_date')
+        # end_date = request.query_params.get('end_date')
+
+        # if start_date and end_date:
+        #     start = parse_date(start_date)
+        #     end = parse_date(end_date)
+        #     if start and end:
+        #         bookings = bookings.filter(booking_date__range=(start, end))
 
         # ✅ Step 5: Optional search filter
         search = request.query_params.get('search')

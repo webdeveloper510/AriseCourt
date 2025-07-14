@@ -420,6 +420,11 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
     location_name = serializers.CharField(source='court.location_id.name', read_only=True)
     location_address = serializers.SerializerMethodField()
 
+
+    # summary = serializers.SerializerMethodField()
+    # tax = serializers.SerializerMethodField()
+    # cc_fees = serializers.SerializerMethodField()
+
     class Meta:
         model = CourtBooking
         fields = [
@@ -437,7 +442,10 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
             'user_email',
             'user_type',
             'location_name',
-            'location_address'
+            'location_address',
+            # 'summary',
+            # 'tax',
+            # 'cc_fees'
         ]
 
     def get_location_address(self, obj):
@@ -453,3 +461,34 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
         ]
 
         return ", ".join(filter(None, map(str.strip, filter(None, parts))))
+
+
+    # def get_summary(self, obj):
+    #     try:
+    #         total = float(obj.total_price or 0)
+    #         tax_percent = float(getattr(obj.court, 'tax', 0))
+    #         cc_percent = float(getattr(obj.court, 'cc_fees', 0))
+    #         data = calculate_total_fee(total, tax_percent, cc_percent)
+    #         return data["total_amount"]
+    #     except (ValueError, TypeError, AttributeError):
+    #         return 0
+
+    # def get_tax(self, obj):
+    #     try:
+    #         total = float(obj.total_price or 0)
+    #         tax_percent = float(getattr(obj.court, 'tax', 0))
+    #         cc_percent = float(getattr(obj.court, 'cc_fees', 0))
+    #         data = calculate_total_fee(total, tax_percent, cc_percent)
+    #         return f"{round(total * tax_percent / 100, 2)} ({tax_percent}%)"
+    #     except (ValueError, TypeError, AttributeError):
+    #         return "0 (0%)"
+
+    # def get_cc_fees(self, obj):
+    #     try:
+    #         total = float(obj.total_price or 0)
+    #         tax_percent = float(getattr(obj.court, 'tax', 0))
+    #         cc_percent = float(getattr(obj.court, 'cc_fees', 0))
+    #         data = calculate_total_fee(total, tax_percent, cc_percent)
+    #         return f"{round(total * cc_percent / 100, 2)} ({cc_percent}%)"
+    #     except (ValueError, TypeError, AttributeError):
+    #         return "0 (0%)"
