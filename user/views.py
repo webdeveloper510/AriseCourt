@@ -217,16 +217,19 @@ class UserLoginView(APIView):
                 if not user.locations.filter(id=location_id).exists():
                     user.locations.add(location)
 
-        # ✅ Admin (user_type == 1) logic
+        # ✅ Admin (user_type == 1) logic — location is now required
         elif user.user_type == 1:
-            if location_id:
-                # Assign if not already assigned
-                if not user.locations.filter(id=location_id).exists():
-                    return Response({
-                        'message': 'You are not assigned to this location.',
-                        'code': 400
-                    }, status=status.HTTP_200_OK)
-            # Location is optional for admin
+            if not location_id:
+                return Response({
+                    'message': 'Location is required for admin users.',
+                    'code': 400
+                }, status=status.HTTP_200_OK)
+
+            if not user.locations.filter(id=location_id).exists():
+                return Response({
+                    'message': 'You are not assigned to this location.',
+                    'code': 400
+                }, status=status.HTTP_200_OK)
 
         # ❌ All others (Coach, Player, Court) must have assigned location
         else:
