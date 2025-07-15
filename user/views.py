@@ -221,13 +221,13 @@ class UserLoginView(APIView):
         elif user.user_type == 1:
             if not location_id:
                 return Response({
-                    'message': 'Location is required for admin users.',
+                    'message': 'Details are incorrect.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
             if not user.locations.filter(id=location_id).exists():
                 return Response({
-                    'message': 'You are not assigned to this location.',
+                    'message': 'Details are incorrect.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
@@ -235,7 +235,7 @@ class UserLoginView(APIView):
         else:
             if not location_id:
                 return Response({
-                    'message': 'Location is required for this user type.',
+                    'message': 'Location is required.',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
