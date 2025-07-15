@@ -1519,3 +1519,17 @@ class BookedLocationDropdownView(APIView):
         locations = Location.objects.filter(id__in=booked_location_ids)
         serializer = LocationSerializer(locations, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
+    
+
+
+
+class LocationListView(viewsets.ModelViewSet):
+    """
+    Returns all locations without pagination or filters.
+    """
+    queryset = Location.objects.all()
+    serializer_class = LocationSerializer
+    pagination_class = None  # ✅ Disable pagination
+
+    def get_queryset(self):
+        return Location.objects.all() 

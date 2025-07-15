@@ -13,6 +13,7 @@ router.register(r'courts', CourtViewSet, basename='court')
 router.register(r'create_admin', AdminViewSet, basename='create-Admin')
 router.register(r'court-bookings', CourtBookingViewSet, basename='booking')
 router.register(r'contact-us', ContactUsViewSet, basename='contactus')
+router.register(r'all_locations', LocationListView, basename='all-locations')
 
 
 urlpatterns = [
@@ -36,6 +37,7 @@ urlpatterns = [
     path('users_my_locations/', UsersInMyLocationView.as_view(), name='users-in-my-location'),
     path('get_booking_byadmin/', AdminCourtBookingListView.as_view(), name='admin-location-users'),
     path('booked-locations/', BookedLocationDropdownView.as_view(), name='booked-locations-dropdown'),
+    
     
     
 ]+ static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
