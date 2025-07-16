@@ -101,7 +101,7 @@ class CourtBooking(models.Model):
     end_time = models.TimeField()
     duration_time = models.CharField(blank=True, null=True,max_length=225)
     total_price = models.CharField(blank=True, null=True,max_length=225)
-    book_for_six_months = models.BooleanField(default=False)
+    book_for_four_weeks = models.BooleanField(default=False)
     status_choices = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),

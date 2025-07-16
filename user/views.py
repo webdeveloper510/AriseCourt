@@ -729,12 +729,75 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
 
+    # def create(self, request, *args, **kwargs):
+    #     data = request.data.copy()
+    #     court_id = data.get('court')
+    #     booking_date = data.get('booking_date')
+    #     start = data.get('start_time')
+    #     end = data.get('end_time')
+
+    #     try:
+    #         start_time = datetime.strptime(start, "%H:%M:%S").time()
+    #         end_time = datetime.strptime(end, "%H:%M:%S").time()
+
+    #         if end_time <= start_time:
+    #             return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
+
+    #         duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
+    #         data['duration_time'] = duration
+
+    #     except:
+    #         return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
+
+    #     # ✅ Block only if already booked with confirmed or paid
+    #     if CourtBooking.objects.filter(
+    #         court_id=court_id,
+    #         booking_date=booking_date,
+    #         start_time__lt=start_time,
+    #         end_time__gt=end_time
+    #     ).filter(
+    #         Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+    #     ).exists():
+    #         return Response({
+    #             "message": "Court is already booked for the selected time.",
+    #             "code": "400"
+    #         }, status=status.HTTP_409_CONFLICT)
+
+    #     serializer = self.get_serializer(data=data)
+    #     serializer.is_valid(raise_exception=True)
+    #     user = request.user
+
+    #     # ✅ Admin or SuperAdmin books without payment
+    #     if user.user_type in [0, 1]:  # SuperAdmin or Admin
+    #         booking = serializer.save(
+    #             user=user,
+    #             status='confirmed'  # Mark confirmed so it blocks the court
+    #         )
+    #         MailUtils.booking_confirmation_mail(user, booking)
+    #         return Response({
+    #             "message": "Booking successful for admin (no payment needed).",
+    #             "status_code": status.HTTP_201_CREATED,
+    #             "data": serializer.data
+    #         }, status=status.HTTP_201_CREATED)
+
+    #     # 🧾 Regular user booking
+    #     booking = serializer.save(user=user)
+    #     MailUtils.booking_confirmation_mail(user, booking)
+    #     return Response({
+    #         "message": "Booking created successfully.",
+    #         "status_code": status.HTTP_201_CREATED,
+    #         "data": serializer.data
+    #     }, status=status.HTTP_201_CREATED)
+
+
+
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
-        court_id = data.get('court')
+        court_id = data.get('court') or data.get('court_id')
         booking_date = data.get('booking_date')
         start = data.get('start_time')
         end = data.get('end_time')
+        book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
 
         try:
             start_time = datetime.strptime(start, "%H:%M:%S").time()
@@ -749,7 +812,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         except:
             return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
 
-        # ✅ Block only if already booked with confirmed or paid
         if CourtBooking.objects.filter(
             court_id=court_id,
             booking_date=booking_date,
@@ -767,102 +829,52 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         user = request.user
 
-        # ✅ Admin or SuperAdmin books without payment
-        if user.user_type in [0, 1]:  # SuperAdmin or Admin
-            booking = serializer.save(
-                user=user,
-                status='confirmed'  # Mark confirmed so it blocks the court
-            )
-            MailUtils.booking_confirmation_mail(user, booking)
-            return Response({
-                "message": "Booking successful for admin (no payment needed).",
-                "status_code": status.HTTP_201_CREATED,
-                "data": serializer.data
-            }, status=status.HTTP_201_CREATED)
+        created_bookings = []
 
-        # 🧾 Regular user booking
-        booking = serializer.save(user=user)
-        MailUtils.booking_confirmation_mail(user, booking)
+        # ✅ Main booking
+        if user.user_type in [0, 1]:
+            main_booking = serializer.save(user=user, status='confirmed')
+        else:
+            main_booking = serializer.save(user=user)
+
+        MailUtils.booking_confirmation_mail(user, main_booking)
+        created_bookings.append(main_booking)
+
+        # ✅ Create next 3 weekly bookings
+        if book_for_four_weeks:
+            original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+            for i in range(1, 4):
+                next_date = original_date + timedelta(weeks=i)
+
+                if not CourtBooking.objects.filter(
+                    court_id=court_id,
+                    booking_date=next_date,
+                    start_time__lt=start_time,
+                    end_time__gt=end_time
+                ).filter(
+                    Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+                ).exists():
+                    next_booking = CourtBooking.objects.create(
+                        user=user,
+                        court_id=court_id,
+                        booking_date=next_date,
+                        start_time=start_time,
+                        end_time=end_time,
+                        duration_time=duration,
+                        book_for_four_weeks=True,
+                        status='confirmed' if user.user_type in [0, 1] else 'pending'
+                    )
+                    created_bookings.append(next_booking)
+
+        # ✅ Return all created bookings
+        response_serializer = self.get_serializer(created_bookings, many=True)
         return Response({
-            "message": "Booking created successfully.",
+            "message": "Booking(s) created successfully.",
             "status_code": status.HTTP_201_CREATED,
-            "data": serializer.data
+            "data": response_serializer.data
         }, status=status.HTTP_201_CREATED)
 
 
-
-    # def create(self, request, *args, **kwargs):
-    #     data = request.data.copy()
-    #     court_id = data.get('court')
-    #     booking_date = data.get('booking_date')
-    #     start = data.get('start_time')
-    #     end = data.get('end_time')
-
-    #     # ✅ Validate & compute duration
-    #     try:
-    #         start_time = datetime.strptime(start, "%H:%M:%S").time()
-    #         end_time = datetime.strptime(end, "%H:%M:%S").time()
-
-    #         if end_time <= start_time:
-    #             return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
-
-    #         duration_hours = calculate_duration(start_time, end_time)
-    #         duration_str = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
-    #         data['duration_time'] = duration_str
-
-    #     except:
-    #         return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
-
-    #     # ✅ Check slot conflicts
-    #     if CourtBooking.objects.filter(
-    #         court_id=court_id,
-    #         booking_date=booking_date,
-    #         start_time__lt=start_time,
-    #         end_time__gt=end_time
-    #     ).filter(
-    #         Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-    #     ).exists():
-    #         return Response({
-    #             "message": "Court is already booked for the selected time.",
-    #             "code": "400"
-    #         }, status=status.HTTP_409_CONFLICT)
-
-    #     # ✅ Calculate pricing
-    #     court = Court.objects.get(id=court_id)
-    #     court_fee = float(court.court_fee_hrs)
-    #     tax = float(court.tax)
-    #     cc_fee = float(court.cc_fees)
-
-    #     base_fee = duration_hours * court_fee
-    #     price_data = calculate_total_fee(base_fee, tax, cc_fee)
-
-    #     data['total_price'] = price_data['total_amount']
-    #     data['tax'] = f"{price_data['tax_amount']} ({court.tax}%)"
-    #     data['cc_fees'] = f"{price_data['cc_fee_amount']} ({court.cc_fees}%)"
-
-    #     # ✅ Create booking
-    #     serializer = self.get_serializer(data=data)
-    #     serializer.is_valid(raise_exception=True)
-
-    #     user = request.user
-    #     if user.user_type in [0, 1]:  # Admin or SuperAdmin
-    #         booking = serializer.save(user=user, status='confirmed')
-    #         MailUtils.booking_confirmation_mail(user, booking)
-    #         return Response({
-    #             "message": "Booking successful for admin (no payment needed).",
-    #             "status_code": status.HTTP_201_CREATED,
-    #             "data": serializer.data
-    #         }, status=status.HTTP_201_CREATED)
-
-    #     # ✅ Normal user
-    #     booking = serializer.save(user=user)
-    #     MailUtils.booking_confirmation_mail(user, booking)
-    #     return Response({
-    #         "message": "Booking created successfully.",
-    #         "status_code": status.HTTP_201_CREATED,
-    #         "data": serializer.data
-    #     }, status=status.HTTP_201_CREATED)
-    
 
 
 
@@ -1038,7 +1050,7 @@ class CourtAvailabilityView(APIView):
             six_months_back = date_obj - timedelta(weeks=26)
 
             repeating_bookings = bookings.filter(
-                book_for_six_months=True,
+                book_for_four_weeks=True,
                 booking_date__lte=date_obj,
                 booking_date__gte=six_months_back
             )
@@ -1501,7 +1513,7 @@ class GetLocationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Return only unassigned locations
-        queryset = Location.objects.filter(status=False)
+        queryset = Location.objects.filter()
 
         # Optional filter by date
         start_date = self.request.query_params.get('start_date')
