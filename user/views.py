@@ -513,19 +513,19 @@ class AdminViewSet(viewsets.ModelViewSet):
         location_id = request.data.get("location_id")
 
         # ✅ Use correct M2M lookup
-        if location_id:
-            existing_admin = User.objects.filter(
-                user_type=1,
-                locations__id=location_id
-            ).exists()
+        # if location_id:
+        #     existing_admin = User.objects.filter(
+        #         user_type=1,
+        #         locations__id=location_id
+        #     ).exists()
 
-            if existing_admin:
-                location = Location.objects.filter(id=location_id, status=True).first()
-                if location:
-                    return Response({
-                        "message": "This location is already assigned to another admin.",
-                        "code": 400
-                    }, status=status.HTTP_200_OK)
+        #     if existing_admin:
+        #         location = Location.objects.filter(id=location_id, status=True).first()
+        #         if location:
+        #             return Response({
+        #                 "message": "This location is already assigned to another admin.",
+        #                 "code": 400
+        #             }, status=status.HTTP_200_OK)
 
         access_flag = request.data.get("access_flag", None)
 
@@ -544,7 +544,9 @@ class AdminViewSet(viewsets.ModelViewSet):
 
         # ✅ Update location status if assigned
         if user.locations.exists():
-            Location.objects.filter(id__in=user.locations.values_list('id', flat=True)).update(status=True)
+            # Location.objects.filter(id__in=user.locations.values_list('id', flat=True)).update(status=True)
+            Location.objects.filter(id__in=user.locations.values_list('id', flat=True))
+
 
         # ✅ Set access flag
         AdminPermission.objects.create(user=user, access_flag=str(access_flag))
@@ -1072,9 +1074,8 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
-
-
-
+    
+    
 
 
 class CreatePaymentIntentView(APIView):
