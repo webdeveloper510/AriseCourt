@@ -213,7 +213,7 @@ class UserLoginView(APIView):
                 location, _ = Location.objects.get_or_create(
                     id=location_id,
                     defaults={'name': f'Location {location_id}'}
-                )
+                ) 
                 if not user.locations.filter(id=location_id).exists():
                     user.locations.add(location)
 
@@ -221,13 +221,13 @@ class UserLoginView(APIView):
         elif user.user_type == 1:
             if not location_id:
                 return Response({
-                    'message': 'Details are incorrect.',
+                    'message': 'Incorrect login details or you are not assigned to this location..',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
             if not user.locations.filter(id=location_id).exists():
                 return Response({
-                    'message': 'Details are incorrect.',
+                    'message': 'Incorrect login details or you are not assigned to this location..',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
@@ -255,7 +255,6 @@ class UserLoginView(APIView):
             'message': 'Login Successfully',
             'data': user_data
         }, status=status.HTTP_200_OK)
-
 
    
 
@@ -797,6 +796,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         booking_date = data.get('booking_date')
         start = data.get('start_time')
         end = data.get('end_time')
+        on_amount = data.get('on_amount')
+
         book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
 
         try:
@@ -862,6 +863,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         end_time=end_time,
                         duration_time=duration,
                         book_for_four_weeks=True,
+                        on_amount=on_amount,
                         status='confirmed' if user.user_type in [0, 1] else 'pending'
                     )
                     created_bookings.append(next_booking)
