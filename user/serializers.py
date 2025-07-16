@@ -443,7 +443,7 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
             'user_type',
             'location_name',
             'location_address',
-            # 'summary',
+            'on_amount',
             # 'tax',
             # 'cc_fees'
         ]
