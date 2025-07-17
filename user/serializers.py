@@ -304,40 +304,36 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         try:
             return float(obj.total_price or 0)
         except (ValueError, TypeError):
-            return 0
-
-    def get_on_amount(self, obj):
-        base_price = float(obj.total_price or 0)
-        tax_percent = float(obj.court.tax or 0)
-        cc_fees_percent = float(obj.court.cc_fees or 0)
-
-        tax_amount = base_price * (tax_percent / 100)
-        cc_fee_amount = base_price * (cc_fees_percent / 100)
-        return round(base_price + tax_amount + cc_fee_amount, 2)
+            return 0.0
 
     def get_tax(self, obj):
-        base_price = float(obj.total_price or 0)
-        tax_percent = float(obj.court.tax or 0)
-        tax_amount = base_price * (tax_percent / 100)
-        return f"{round(tax_amount, 2)} ({tax_percent}%)"
+        try:
+            base_price = float(obj.total_price or 0)
+            tax_percent = float(obj.court.tax or 0)
+            tax_amount = base_price * (tax_percent / 100)
+            return f"{tax_amount} ({tax_percent}%)"
+        except (ValueError, TypeError, AttributeError):
+            return "0.0 (0%)"
 
     def get_cc_fees(self, obj):
-        base_price = float(obj.total_price or 0)
-        cc_fees_percent = float(obj.court.cc_fees or 0)
-        cc_fee_amount = base_price * (cc_fees_percent / 100)
-        return f"{round(cc_fee_amount, 2)} ({cc_fees_percent}%)"
-    
-    def get_summary(self, obj):
+        try:
+            base_price = float(obj.total_price or 0)
+            cc_fees_percent = float(obj.court.cc_fees or 0)
+            cc_fee_amount = base_price * (cc_fees_percent / 100)
+            return f"{cc_fee_amount} ({cc_fees_percent}%)"
+        except (ValueError, TypeError, AttributeError):
+            return "0.0 (0%)"
+
+    def get_on_amount(self, obj):
         try:
             base_price = float(obj.total_price or 0)
             tax_percent = float(obj.court.tax or 0)
             cc_fees_percent = float(obj.court.cc_fees or 0)
             tax_amount = base_price * (tax_percent / 100)
             cc_fee_amount = base_price * (cc_fees_percent / 100)
-            total = round(base_price + tax_amount + cc_fee_amount, 2)
-            return total
+            return base_price + tax_amount + cc_fee_amount  # No rounding
         except (ValueError, TypeError, AttributeError):
-            return 0
+            return 0.0
         
 
     def get_summary(self, obj):

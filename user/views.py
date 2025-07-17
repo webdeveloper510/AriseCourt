@@ -921,7 +921,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 ).filter(
                     Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
                 ).exists():
-                    CourtBooking.objects.create(
+                    new_booking = CourtBooking.objects.create(
                         user=user,
                         court_id=court_id,
                         booking_date=next_date,
@@ -933,6 +933,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         total_price=data.get('total_price'),
                         status='confirmed' if user.user_type in [0, 1] else 'pending'
                     )
+                    created_bookings.append(new_booking) 
 
         response_serializer = self.get_serializer(created_bookings, many=True)
         return Response({
@@ -1123,6 +1124,86 @@ class ProfileView(APIView):
 
 
 
+# class CourtAvailabilityView(APIView):
+
+#     def post(self, request, *args, **kwargs):
+#         location_id = request.data.get('location_id')
+#         booking_date = request.data.get('date')
+#         start_time = request.data.get('start_time')
+#         end_time = request.data.get('end_time')
+
+#         if not (location_id and booking_date):
+#             return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Parse date and time
+#         try:
+#             date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
+#             if start_time and end_time:
+#                 start_time_obj = time.fromisoformat(start_time)
+#                 end_time_obj = time.fromisoformat(end_time)
+#             else:
+#                 start_time_obj = None
+#                 end_time_obj = None
+#         except ValueError:
+#             return Response({"error": "Invalid date or time format."}, status=status.HTTP_400_BAD_REQUEST)
+
+#         courts = Court.objects.filter(location_id=location_id)
+#         result = []
+
+#         for court in courts:
+#             # Base query
+#             bookings = CourtBooking.objects.filter(
+#                 court=court,
+#                 status__in=['pending', 'confirmed']
+#             )
+
+#             # Filter 1: Normal same-day bookings
+#             same_day_bookings = bookings.filter(booking_date=date_obj)
+
+#             # Filter 2: Repeating bookings (booked for 6 months)
+#             weekday = date_obj.weekday()  # Monday=0 ... Sunday=6
+#             six_months_back = date_obj - timedelta(weeks=26)
+
+#             repeating_bookings = bookings.filter(
+#                 book_for_four_weeks=True,
+#                 booking_date__lte=date_obj,
+#                 booking_date__gte=six_months_back
+#             )
+
+#             repeating_bookings = [
+#                 b for b in repeating_bookings
+#                 if b.booking_date.weekday() == weekday
+#             ]
+
+#             # Combine all bookings to check time conflict
+#             combined_bookings = list(same_day_bookings) + list(repeating_bookings)
+
+#             is_booked = False
+#             if start_time_obj and end_time_obj:
+#                 for booking in combined_bookings:
+#                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
+#                         is_booked = True
+#                         break
+#             else:
+#                 is_booked = bool(combined_bookings)
+
+#             result.append({
+#                 "court_id": court.id,
+#                 "court_number": court.court_number,
+#                 "court_fee_hrs": court.court_fee_hrs,  
+#                 "start_time": court.start_time, 
+#                 "end_time": court.end_time, 
+#                 "is_booked": is_booked
+#             })
+
+#         return Response({
+#             "location_id": location_id,
+#             "date": booking_date,
+#             "courts": result
+#         }, status=status.HTTP_200_OK)
+
+
+
 class CourtAvailabilityView(APIView):
 
     def post(self, request, *args, **kwargs):
@@ -1150,7 +1231,7 @@ class CourtAvailabilityView(APIView):
         result = []
 
         for court in courts:
-            # Base query
+            # ✅ FIXED: Fetch bookings from ALL users, not just current user
             bookings = CourtBooking.objects.filter(
                 court=court,
                 status__in=['pending', 'confirmed']
@@ -1181,6 +1262,8 @@ class CourtAvailabilityView(APIView):
             if start_time_obj and end_time_obj:
                 for booking in combined_bookings:
                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
+                        # Optional debug
+                        # print(f"⛔ Conflict with booking by user {booking.user_id}: {booking.start_time}-{booking.end_time}")
                         is_booked = True
                         break
             else:
@@ -1200,6 +1283,7 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
+
     
     
 
@@ -1686,7 +1770,6 @@ class LocationListView(viewsets.ModelViewSet):
 
 
 
-
 class UserBasicDataView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1694,23 +1777,23 @@ class UserBasicDataView(APIView):
         user = request.user
         search_query = request.query_params.get('search', '')
 
-        # SuperAdmin: see only regular users (user_type >= 2)
-        if user.user_type == 0:
+        if user.user_type == 0:  # SuperAdmin
             queryset = User.objects.filter(user_type__gte=2)
 
-        # Admin: see users (user_type >= 2) assigned to their locations
-        elif user.user_type == 1:
+        elif user.user_type == 1:  # Admin
+            # Step 1: Get locations managed by this admin
             admin_locations = Location.objects.filter(user=user)
+
+            # Step 2: Get users assigned to those locations (via M2M field)
             queryset = User.objects.filter(
                 user_type__gte=2,
                 locations__in=admin_locations
             ).distinct()
 
-        # Regular user: see only themselves
-        else:
+        else:  # Regular user (Coach, Player, etc.)
             queryset = User.objects.filter(id=user.id)
 
-        # Apply search filter
+        # Optional search
         if search_query:
             queryset = queryset.filter(
                 Q(first_name__icontains=search_query) |
@@ -1718,7 +1801,7 @@ class UserBasicDataView(APIView):
                 Q(email__icontains=search_query)
             )
 
-        # Paginate using custom pagination
+        # Pagination
         paginator = LargeResultsSetPagination()
         paginated_queryset = paginator.paginate_queryset(queryset, request)
         serializer = UserBasicDataSerializer(paginated_queryset, many=True)
