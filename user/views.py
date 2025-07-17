@@ -1781,14 +1781,12 @@ class UserBasicDataView(APIView):
             queryset = User.objects.filter(user_type__gte=2)
 
         elif user.user_type == 1:  # Admin
-            # Step 1: Get locations managed by this admin
-            admin_locations = Location.objects.filter(user=user)
-
-            # Step 2: Get users assigned to those locations (via M2M field)
+            # Step: Get users whose locations overlap with admin's locations
+            admin_locations = user.locations.all()
             queryset = User.objects.filter(
                 user_type__gte=2,
                 locations__in=admin_locations
-            ).distinct()
+            ).exclude(id=user.id).distinct()
 
         else:  # Regular user (Coach, Player, etc.)
             queryset = User.objects.filter(id=user.id)
