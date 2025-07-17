@@ -913,7 +913,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             for i in range(1, 4):
                 next_date = original_date + timedelta(weeks=i)
 
-                # Check court availability
                 if not CourtBooking.objects.filter(
                     court_id=court_id,
                     booking_date=next_date,
@@ -922,14 +921,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 ).filter(
                     Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
                 ).exists():
-                    # ✅ Recalculate tax/fees for each booking
-                    try:
-                        tax_amount = base_price * (tax_percent / 100)
-                        cc_fee_amount = base_price * (cc_fees_percent / 100)
-                        calculated_on_amount = round(base_price + tax_amount + cc_fee_amount, 2)
-                    except:
-                        calculated_on_amount = base_price  # fallback
-
                     new_booking = CourtBooking.objects.create(
                         user=user,
                         court_id=court_id,
@@ -938,12 +929,18 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         end_time=end_time,
                         duration_time=duration,
                         book_for_four_weeks=True,
-                        on_amount=str(calculated_on_amount),
-                        total_price=base_price,
+                        on_amount=str(on_amount),
+                        total_price=data.get('total_price'),
                         status='confirmed' if user.user_type in [0, 1] else 'pending'
                     )
-                    created_bookings.append(new_booking)
+                    created_bookings.append(new_booking) 
 
+        response_serializer = self.get_serializer(created_bookings, many=True)
+        return Response({
+            "message": "Booking(s) created successfully.",
+            "status_code": status.HTTP_201_CREATED,
+            "data": response_serializer.data
+        }, status=status.HTTP_201_CREATED)
 
 
 
@@ -1784,12 +1781,14 @@ class UserBasicDataView(APIView):
             queryset = User.objects.filter(user_type__gte=2)
 
         elif user.user_type == 1:  # Admin
-            # Step: Get users whose locations overlap with admin's locations
-            admin_locations = user.locations.all()
+            # Step 1: Get locations managed by this admin
+            admin_locations = Location.objects.filter(user=user)
+
+            # Step 2: Get users assigned to those locations (via M2M field)
             queryset = User.objects.filter(
                 user_type__gte=2,
                 locations__in=admin_locations
-            ).exclude(id=user.id).distinct()
+            ).distinct()
 
         else:  # Regular user (Coach, Player, etc.)
             queryset = User.objects.filter(id=user.id)
