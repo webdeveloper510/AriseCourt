@@ -448,8 +448,8 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
 
 
     # summary = serializers.SerializerMethodField()
-    # tax = serializers.SerializerMethodField()
-    # cc_fees = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    cc_fees = serializers.SerializerMethodField()
 
     class Meta:
         model = CourtBooking
@@ -470,8 +470,8 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
             'location_name',
             'location_address',
             'on_amount',
-            # 'tax',
-            # 'cc_fees'
+            'tax',
+            'cc_fees'
         ]
 
     def get_location_address(self, obj):
@@ -489,32 +489,35 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
         return ", ".join(filter(None, map(str.strip, filter(None, parts))))
 
 
-    # def get_summary(self, obj):
-    #     try:
-    #         total = float(obj.total_price or 0)
-    #         tax_percent = float(getattr(obj.court, 'tax', 0))
-    #         cc_percent = float(getattr(obj.court, 'cc_fees', 0))
-    #         data = calculate_total_fee(total, tax_percent, cc_percent)
-    #         return data["total_amount"]
-    #     except (ValueError, TypeError, AttributeError):
-    #         return 0
+    def get_tax(self, obj):
+        try:
+            tax_rate = float(obj.court.tax or 0)
+            total_price = float(obj.total_price or 0)
+            tax = total_price * (tax_rate / 100)
+            return f"{round(tax, 2)} ({tax_rate}%)"
+        except Exception:
+            return None
 
-    # def get_tax(self, obj):
-    #     try:
-    #         total = float(obj.total_price or 0)
-    #         tax_percent = float(getattr(obj.court, 'tax', 0))
-    #         cc_percent = float(getattr(obj.court, 'cc_fees', 0))
-    #         data = calculate_total_fee(total, tax_percent, cc_percent)
-    #         return f"{round(total * tax_percent / 100, 2)} ({tax_percent}%)"
-    #     except (ValueError, TypeError, AttributeError):
-    #         return "0 (0%)"
+    def get_cc_fees(self, obj):
+        try:
+            cc_rate = float(obj.court.cc_fees or 0)
+            total_price = float(obj.total_price or 0)
+            cc_fee = total_price * (cc_rate / 100)
+            return f"{round(cc_fee, 2)} ({cc_rate}%)"
+        except Exception:
+            return None
 
-    # def get_cc_fees(self, obj):
-    #     try:
-    #         total = float(obj.total_price or 0)
-    #         tax_percent = float(getattr(obj.court, 'tax', 0))
-    #         cc_percent = float(getattr(obj.court, 'cc_fees', 0))
-    #         data = calculate_total_fee(total, tax_percent, cc_percent)
-    #         return f"{round(total * cc_percent / 100, 2)} ({cc_percent}%)"
-    #     except (ValueError, TypeError, AttributeError):
-    #         return "0 (0%)"
+    def get_on_amount(self, obj):
+        try:
+            total_price = float(obj.total_price or 0)
+            tax = float(obj.court.tax or 0)
+            cc = float(obj.court.cc_fees or 0)
+
+            total_tax = total_price * (tax / 100)
+            total_cc = total_price * (cc / 100)
+            return round(total_price + total_tax + total_cc, 2)
+        except Exception:
+            return None
+
+    def get_total_price(self, obj):
+        return float(obj.total_price or 0)
