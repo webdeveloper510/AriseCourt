@@ -37,6 +37,7 @@ urlpatterns = [
     path('users_my_locations/', UsersInMyLocationView.as_view(), name='users-in-my-location'),
     path('get_booking_byadmin/', AdminCourtBookingListView.as_view(), name='admin-location-users'),
     path('booked-locations/', BookedLocationDropdownView.as_view(), name='booked-locations-dropdown'),
+    path('user_basic_data/', UserBasicDataView.as_view(), name='logged-in-user-data')
     
     
     

@@ -1681,3 +1681,45 @@ class LocationListView(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Location.objects.all() 
+    
+
+
+
+
+
+class UserBasicDataView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        search_query = request.query_params.get('search', '')
+
+        # SuperAdmin: see only regular users (user_type >= 2)
+        if user.user_type == 0:
+            queryset = User.objects.filter(user_type__gte=2)
+
+        # Admin: see users (user_type >= 2) assigned to their locations
+        elif user.user_type == 1:
+            admin_locations = Location.objects.filter(user=user)
+            queryset = User.objects.filter(
+                user_type__gte=2,
+                locations__in=admin_locations
+            ).distinct()
+
+        # Regular user: see only themselves
+        else:
+            queryset = User.objects.filter(id=user.id)
+
+        # Apply search filter
+        if search_query:
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
+
+        # Paginate using custom pagination
+        paginator = LargeResultsSetPagination()
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+        serializer = UserBasicDataSerializer(paginated_queryset, many=True)
+        return paginator.get_paginated_response(serializer.data)

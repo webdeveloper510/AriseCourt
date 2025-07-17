@@ -521,3 +521,14 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
 
     def get_total_price(self, obj):
         return float(obj.total_price or 0)
+
+
+
+
+class UserBasicDataSerializer(serializers.ModelSerializer):
+    
+    class Meta:
+        model = User
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type']
+
+    
