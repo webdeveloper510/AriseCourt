@@ -285,10 +285,10 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     )
     booking_id = serializers.IntegerField(source='id', read_only=True)
 
-    amount = serializers.SerializerMethodField()
+    # amount = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     cc_fees = serializers.SerializerMethodField()
-    summary = serializers.SerializerMethodField()
+    on_amount = serializers.SerializerMethodField()
 
     class Meta:
         model = CourtBooking
@@ -296,44 +296,36 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             'booking_id', 'user', 'court', 'court_id', 'booking_date','book_for_four_weeks','total_price',
             'start_time', 'end_time', 'duration_time', 'status',
             'created_at', 'updated_at','on_amount',
-            'amount', 'tax', 'cc_fees', 'summary'
+         'tax', 'cc_fees'
         ]
        
-    def get_amount(self, obj):
-        try:
-            return float(obj.total_price or 0)
-        except (ValueError, TypeError):
-            return 0
+    # def get_amount(self, obj):
+    #     try:
+    #         return float(obj.total_price or 0)
+    #     except (ValueError, TypeError):
+    #         return 0
+
+    def get_on_amount(self, obj):
+        base_price = float(obj.total_price or 0)
+        tax_percent = float(obj.court.tax or 0)
+        cc_fees_percent = float(obj.court.cc_fees or 0)
+
+        tax_amount = base_price * (tax_percent / 100)
+        cc_fee_amount = base_price * (cc_fees_percent / 100)
+        return round(base_price + tax_amount + cc_fee_amount, 2)
 
     def get_tax(self, obj):
-        try:
-            total_price = float(obj.total_price or 0)
-            tax_percent = float(getattr(obj.court, 'tax', 0) or 0)
-            cc_percent = float(getattr(obj.court, 'cc_fees', 0) or 0)
-            data = calculate_total_fee(total_price, tax_percent, cc_percent)
-            return f"{data['tax']} ({tax_percent}%)"
-        except (ValueError, TypeError, AttributeError):
-            return "0 (0%)"
+        base_price = float(obj.total_price or 0)
+        tax_percent = float(obj.court.tax or 0)
+        tax_amount = base_price * (tax_percent / 100)
+        return f"{round(tax_amount, 2)} ({tax_percent}%)"
 
     def get_cc_fees(self, obj):
-        try:
-            total_price = float(obj.total_price or 0)
-            tax_percent = float(getattr(obj.court, 'tax', 0) or 0)
-            cc_percent = float(getattr(obj.court, 'cc_fees', 0) or 0)
-            data = calculate_total_fee(total_price, tax_percent, cc_percent)
-            return f"{data['cc_fees']} ({cc_percent}%)"
-        except (ValueError, TypeError, AttributeError):
-            return "0 (0%)"
+        base_price = float(obj.total_price or 0)
+        cc_fees_percent = float(obj.court.cc_fees or 0)
+        cc_fee_amount = base_price * (cc_fees_percent / 100)
+        return f"{round(cc_fee_amount, 2)} ({cc_fees_percent}%)"
 
-    def get_summary(self, obj):
-        try:
-            total_price = float(obj.total_price or 0)
-            tax_percent = float(getattr(obj.court, 'tax', 0) or 0)
-            cc_percent = float(getattr(obj.court, 'cc_fees', 0) or 0)
-            data = calculate_total_fee(total_price, tax_percent, cc_percent)
-            return data['total']
-        except (ValueError, TypeError, AttributeError):
-            return 0
     
 
 
@@ -346,14 +338,41 @@ class ContactUsSerializer(serializers.ModelSerializer):
 
 class CourtBookingDataSerializer(serializers.ModelSerializer):
     description = serializers.SerializerMethodField()
+    court_number = serializers.SerializerMethodField()
+    booking_day = serializers.SerializerMethodField()
+    cc_fees = serializers.SerializerMethodField()
+    tax = serializers.SerializerMethodField()
+    # booked_on = serializers.SerializerMethodField()
     class Meta:
         model = CourtBooking
-        fields = ['booking_date', 'start_time', 'duration_time', 'total_price', 'description']
+        fields = ['booking_date', 'start_time', 'duration_time', 'total_price', 'description','court_number','booking_day','cc_fees','tax','on_amount','created_at']
 
     def get_description(self, obj):
         if obj.court and obj.court.location_id:
             return obj.court.location_id.description
         return None
+    
+    def get_court_number(self, obj):
+        return getattr(obj.court, 'court_number', None)
+
+    def get_booking_day(self, obj):
+        return obj.created_at.date() if obj.created_at else None
+
+    def get_cc_fees(self, obj):
+        cc_fees_percent = 2.9  # Example CC fee %
+        try:
+            total_price = float(obj.total_price)
+            return round(total_price * (cc_fees_percent / 100), 2)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def get_tax(self, obj):
+        tax_percent = 5.0  # Example Tax %
+        try:
+            total_price = float(obj.total_price)
+            return round(total_price * (tax_percent / 100), 2)
+        except (TypeError, ValueError):
+            return 0.0
 
 
 

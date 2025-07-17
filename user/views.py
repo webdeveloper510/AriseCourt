@@ -60,41 +60,60 @@ class UserData(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        user = request.user
+
+        # Get optional query params
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         search_query = request.query_params.get('search', '')
-        user_type = request.query_params.get('user_type')  
+        user_type = request.query_params.get('user_type')
+        query_location_id = request.query_params.get('location')  # optional
 
-        # Initialize filters
-        date_filter = Q()
-        if start_date and end_date:
-            start = parse_date(start_date)
-            end = parse_date(end_date)
-            if start and end:
-                date_filter &= Q(created_at__date__range=(start, end))
+        # Base queryset: Exclude SuperAdmin (0) and Admin (1)
+        queryset = User.objects.exclude(user_type__in=[0, 1])
 
+        # 🔍 Apply search filter (name, phone, email)
         search_filter = Q()
         if search_query:
             search_filter |= Q(first_name__icontains=search_query)
             search_filter |= Q(last_name__icontains=search_query)
             search_filter |= Q(phone__icontains=search_query)
             search_filter |= Q(email__icontains=search_query)
+        queryset = queryset.filter(search_filter)
 
-        # Exclude SuperAdmin (0) and Admin (1)
-        queryset = User.objects.exclude(user_type__in=[0, 1])
-        queryset = queryset.filter(date_filter & search_filter)
-
+        # 🔢 Filter by user_type if provided
         if user_type:
             try:
                 queryset = queryset.filter(user_type=int(user_type))
             except ValueError:
                 return Response({"message": "Invalid user_type"}, status=400)
 
-        # ✅ Apply pagination manually
+        # 🏢 LOCATION FILTER LOGIC
+        location_filter = Q()
+        if user.user_type == 1:  # If Admin
+            # Admin can see only their assigned locations
+            assigned_location_ids = user.locations.values_list('id', flat=True)
+            location_filter &= Q(court_bookings__court__location_id__in=assigned_location_ids)
+        elif query_location_id:  # SuperAdmin or others can pass ?location=id
+            location_filter &= Q(court_bookings__court__location_id=query_location_id)
+
+        if location_filter:
+            queryset = queryset.filter(location_filter).distinct()
+
+        # 📅 DATE RANGE FILTER (on court_bookings.created_at)
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                queryset = queryset.filter(
+                    court_bookings__created_at__date__range=(start, end)
+                ).distinct()
+            else:
+                return Response({"message": "Invalid date format"}, status=400)
+            # 📄 Pagination
         paginator = LargeResultsSetPagination()
         paginated_qs = paginator.paginate_queryset(queryset, request)
         serialized_data = UserDataSerializer(paginated_qs, many=True)
-
         return paginator.get_paginated_response(serialized_data.data)
 
 
@@ -728,12 +747,17 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
 
+
+
     # def create(self, request, *args, **kwargs):
     #     data = request.data.copy()
-    #     court_id = data.get('court')
+    #     court_id = data.get('court') or data.get('court_id')
     #     booking_date = data.get('booking_date')
     #     start = data.get('start_time')
     #     end = data.get('end_time')
+    #     on_amount = data.get('on_amount')
+
+    #     book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
 
     #     try:
     #         start_time = datetime.strptime(start, "%H:%M:%S").time()
@@ -748,7 +772,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     #     except:
     #         return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
 
-    #     # ✅ Block only if already booked with confirmed or paid
     #     if CourtBooking.objects.filter(
     #         court_id=court_id,
     #         booking_date=booking_date,
@@ -766,26 +789,50 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     #     serializer.is_valid(raise_exception=True)
     #     user = request.user
 
-    #     # ✅ Admin or SuperAdmin books without payment
-    #     if user.user_type in [0, 1]:  # SuperAdmin or Admin
-    #         booking = serializer.save(
-    #             user=user,
-    #             status='confirmed'  # Mark confirmed so it blocks the court
-    #         )
-    #         MailUtils.booking_confirmation_mail(user, booking)
-    #         return Response({
-    #             "message": "Booking successful for admin (no payment needed).",
-    #             "status_code": status.HTTP_201_CREATED,
-    #             "data": serializer.data
-    #         }, status=status.HTTP_201_CREATED)
+    #     created_bookings = []
 
-    #     # 🧾 Regular user booking
-    #     booking = serializer.save(user=user)
-    #     MailUtils.booking_confirmation_mail(user, booking)
+    #     # ✅ Main booking
+    #     if user.user_type in [0, 1]:
+    #         main_booking = serializer.save(user=user, status='confirmed')
+    #     else:
+    #         main_booking = serializer.save(user=user)
+
+    #     MailUtils.booking_confirmation_mail(user, main_booking)
+    #     created_bookings.append(main_booking)
+
+    #     # ✅ Create next 3 weekly bookings
+    #     if book_for_four_weeks:
+    #         original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+    #         for i in range(1, 4):
+    #             next_date = original_date + timedelta(weeks=i)
+
+    #             if not CourtBooking.objects.filter(
+    #                 court_id=court_id,
+    #                 booking_date=next_date,
+    #                 start_time__lt=start_time,
+    #                 end_time__gt=end_time
+    #             ).filter(
+    #                 Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+    #             ).exists():
+    #                 next_booking = CourtBooking.objects.create(
+    #                     user=user,
+    #                     court_id=court_id,
+    #                     booking_date=next_date,
+    #                     start_time=start_time,
+    #                     end_time=end_time,
+    #                     duration_time=duration,
+    #                     book_for_four_weeks=True,
+    #                     on_amount=on_amount,
+    #                     status='confirmed' if user.user_type in [0, 1] else 'pending'
+    #                 )
+    #                 created_bookings.append(next_booking)
+
+    #     # ✅ Return all created bookings
+    #     response_serializer = self.get_serializer(created_bookings, many=True)
     #     return Response({
-    #         "message": "Booking created successfully.",
+    #         "message": "Booking(s) created successfully.",
     #         "status_code": status.HTTP_201_CREATED,
-    #         "data": serializer.data
+    #         "data": response_serializer.data
     #     }, status=status.HTTP_201_CREATED)
 
 
@@ -796,8 +843,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         booking_date = data.get('booking_date')
         start = data.get('start_time')
         end = data.get('end_time')
-        on_amount = data.get('on_amount')
-
         book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
 
         try:
@@ -807,7 +852,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             if end_time <= start_time:
                 return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
 
-            duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
+            duration_timedelta = datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
+            duration = str(duration_timedelta)
             data['duration_time'] = duration
 
         except:
@@ -826,13 +872,26 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 "code": "400"
             }, status=status.HTTP_409_CONFLICT)
 
+        # ✅ Calculate on_amount (total + tax + cc_fees)
+        try:
+            base_price = float(data.get('total_price') or 0)
+            court = Court.objects.get(id=court_id)
+            tax_percent = float(court.tax or 0)
+            cc_fees_percent = float(court.cc_fees or 0)
+
+            tax_amount = base_price * (tax_percent / 100)
+            cc_fee_amount = base_price * (cc_fees_percent / 100)
+            on_amount = round(base_price + tax_amount + cc_fee_amount, 2)
+
+            data['on_amount'] = str(on_amount)  # ✅ Save to DB
+        except:
+            return Response({"message": "Failed to calculate on_amount", 'code': '400'}, status=status.HTTP_200_OK)
+
         serializer = self.get_serializer(data=data)
         serializer.is_valid(raise_exception=True)
         user = request.user
-
         created_bookings = []
 
-        # ✅ Main booking
         if user.user_type in [0, 1]:
             main_booking = serializer.save(user=user, status='confirmed')
         else:
@@ -841,7 +900,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         MailUtils.booking_confirmation_mail(user, main_booking)
         created_bookings.append(main_booking)
 
-        # ✅ Create next 3 weekly bookings
+        # ✅ Repeat for next 3 weeks (if book_for_four_weeks is true)
         if book_for_four_weeks:
             original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
             for i in range(1, 4):
@@ -855,7 +914,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 ).filter(
                     Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
                 ).exists():
-                    next_booking = CourtBooking.objects.create(
+                    CourtBooking.objects.create(
                         user=user,
                         court_id=court_id,
                         booking_date=next_date,
@@ -863,12 +922,11 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         end_time=end_time,
                         duration_time=duration,
                         book_for_four_weeks=True,
-                        on_amount=on_amount,
+                        on_amount=str(on_amount),
+                        total_price=data.get('total_price'),
                         status='confirmed' if user.user_type in [0, 1] else 'pending'
                     )
-                    created_bookings.append(next_booking)
 
-        # ✅ Return all created bookings
         response_serializer = self.get_serializer(created_bookings, many=True)
         return Response({
             "message": "Booking(s) created successfully.",
@@ -963,16 +1021,60 @@ class ContactUsViewSet(viewsets.ModelViewSet):
     
 
 
-class StatsAPIView(APIView):
-    def get(self, request):
-        allowed_roles = [2, 3, 4]
-        total_users = User.objects.filter(user_type__in=allowed_roles).count()
-        total_bookings = CourtBooking.objects.count()
-        total_courts = Court.objects.count()
+# class StatsAPIView(APIView):
+#     def get(self, request):
+#         allowed_roles = [2, 3, 4]
+#         total_users = User.objects.filter(user_type__in=allowed_roles).count()
+#         total_bookings = CourtBooking.objects.count()
+#         total_courts = Court.objects.count()
 
-        # ✅ Sum all successful payments
-        total_profit = Payment.objects.filter(payment_status='successful') \
-            .aggregate(total=Sum('amount'))['total'] or 0
+#         # ✅ Sum all successful payments
+#         total_profit = Payment.objects.filter(payment_status='successful') \
+#             .aggregate(total=Sum('amount'))['total'] or 0
+
+#         return Response({
+#             'total_users': total_users,
+#             'total_bookings': total_bookings,
+#             'total_courts': total_courts,
+#             'total_profit': f"${total_profit:.2f}"
+#         })
+
+class StatsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        allowed_roles = [2, 3, 4]  # Coach, Player, Court
+
+        # 🔐 If Admin
+        if user.user_type == 1:
+            assigned_location_ids = user.locations.values_list('id', flat=True)
+
+            total_users = User.objects.filter(
+                user_type__in=allowed_roles,
+                court_bookings__court__location_id__in=assigned_location_ids
+            ).distinct().count()
+
+            total_bookings = CourtBooking.objects.filter(
+                court__location_id__in=assigned_location_ids
+            ).count()
+
+            total_courts = Court.objects.filter(
+                location_id__in=assigned_location_ids
+            ).count()
+
+            total_profit = Payment.objects.filter(
+                payment_status='successful',
+                booking__court__location_id__in=assigned_location_ids
+            ).aggregate(total=Sum('amount'))['total'] or 0
+
+        # 🧑‍💼 SuperAdmin sees all
+        else:
+            total_users = User.objects.filter(user_type__in=allowed_roles).count()
+            total_bookings = CourtBooking.objects.count()
+            total_courts = Court.objects.count()
+            total_profit = Payment.objects.filter(payment_status='successful') \
+                .aggregate(total=Sum('amount'))['total'] or 0
 
         return Response({
             'total_users': total_users,
@@ -980,8 +1082,6 @@ class StatsAPIView(APIView):
             'total_courts': total_courts,
             'total_profit': f"${total_profit:.2f}"
         })
-
-
 
 
 class ProfileView(APIView):
@@ -1387,6 +1487,21 @@ class AdminCourtBookingListView(APIView):
         ).select_related('court', 'user').distinct()
 
         # ✅ Step 4: Time-based filter
+        # status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
+        # now = timezone.now()
+
+        # if status_param == 'past':
+        #     bookings = bookings.filter(
+        #         Q(booking_date__lt=now.date()) |
+        #         Q(booking_date=now.date(), end_time__lt=now.time())
+        #     )
+        # elif status_param == 'upcoming':
+        #     bookings = bookings.filter(
+        #         Q(booking_date__gt=now.date()) |
+        #         Q(booking_date=now.date(), end_time__gte=now.time())
+        #     )
+
+
         status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
         now = timezone.now()
 
@@ -1402,14 +1517,17 @@ class AdminCourtBookingListView(APIView):
             )
 
         # # ✅ Step 4.5: Optional date range filter
-        # start_date = request.query_params.get('start_date')
-        # end_date = request.query_params.get('end_date')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
 
-        # if start_date and end_date:
-        #     start = parse_date(start_date)
-        #     end = parse_date(end_date)
-        #     if start and end:
-        #         bookings = bookings.filter(booking_date__range=(start, end))
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                bookings = bookings.filter(booking_date__range=(start, end))
+
+
+
 
         # ✅ Step 5: Optional search filter
         search = request.query_params.get('search')
