@@ -296,7 +296,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         fields = [
             'booking_id', 'user', 'court', 'court_id', 'booking_date','book_for_four_weeks','total_price',
             'start_time', 'end_time', 'duration_time', 'status',
-            'created_at', 'updated_at','on_amount',
+            'created_at', 'updated_at','on_amount','summary','amount'
          'tax', 'cc_fees'
         ]
        
