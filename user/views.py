@@ -16,7 +16,7 @@ from django.utils.http import urlsafe_base64_decode
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum
+from django.db.models import Sum, F, FloatField
 from rest_framework.viewsets import ModelViewSet
 from django.utils.timezone import now
 import random
@@ -67,40 +67,46 @@ class UserData(APIView):
         end_date = request.query_params.get('end_date')
         search_query = request.query_params.get('search', '')
         user_type = request.query_params.get('user_type')
-        query_location_id = request.query_params.get('location')  # optional
+        address_text = request.query_params.get('location', '').strip()  # 🔍 Full address text
 
-        # Base queryset: Exclude SuperAdmin (0) and Admin (1)
-        queryset = User.objects.exclude(user_type__in=[0, 1])
+        # Base queryset: Exclude SuperAdmin (0) and Admin (1), only users with bookings
+        queryset = User.objects.exclude(user_type__in=[0, 1]).filter(court_bookings__isnull=False)
 
-        # 🔍 Apply search filter (name, phone, email)
-        search_filter = Q()
+        # 🔍 Search by user fields
         if search_query:
-            search_filter |= Q(first_name__icontains=search_query)
-            search_filter |= Q(last_name__icontains=search_query)
-            search_filter |= Q(phone__icontains=search_query)
-            search_filter |= Q(email__icontains=search_query)
-        queryset = queryset.filter(search_filter)
+            queryset = queryset.filter(
+                Q(first_name__icontains=search_query) |
+                Q(last_name__icontains=search_query) |
+                Q(phone__icontains=search_query) |
+                Q(email__icontains=search_query)
+            )
 
-        # 🔢 Filter by user_type if provided
+        # 🔢 Filter by user_type
         if user_type:
             try:
                 queryset = queryset.filter(user_type=int(user_type))
             except ValueError:
                 return Response({"message": "Invalid user_type"}, status=400)
 
-        # 🏢 LOCATION FILTER LOGIC
-        location_filter = Q()
-        if user.user_type == 1:  # If Admin
-            # Admin can see only their assigned locations
+        # 🏢 Address Filter (Admin: limited to assigned locations)
+        address_filter = Q()
+        if address_text:
+            address_filter &= (
+                Q(court_bookings__court__location_id__address_1__icontains=address_text) |
+                Q(court_bookings__court__location_id__address_2__icontains=address_text) |
+                Q(court_bookings__court__location_id__address_3__icontains=address_text) |
+                Q(court_bookings__court__location_id__address_4__icontains=address_text)
+            )
+
+        # Admin restriction (can only see assigned locations)
+        if user.user_type == 1:
             assigned_location_ids = user.locations.values_list('id', flat=True)
-            location_filter &= Q(court_bookings__court__location_id__in=assigned_location_ids)
-        elif query_location_id:  # SuperAdmin or others can pass ?location=id
-            location_filter &= Q(court_bookings__court__location_id=query_location_id)
+            address_filter &= Q(court_bookings__court__location_id__in=assigned_location_ids)
 
-        if location_filter:
-            queryset = queryset.filter(location_filter).distinct()
+        if address_filter:
+            queryset = queryset.filter(address_filter).distinct()
 
-        # 📅 DATE RANGE FILTER (on court_bookings.created_at)
+        # 📅 Date filter on booking creation date
         if start_date and end_date:
             start = parse_date(start_date)
             end = parse_date(end_date)
@@ -110,7 +116,8 @@ class UserData(APIView):
                 ).distinct()
             else:
                 return Response({"message": "Invalid date format"}, status=400)
-            # 📄 Pagination
+
+        # 📄 Paginate and return
         paginator = LargeResultsSetPagination()
         paginated_qs = paginator.paginate_queryset(queryset, request)
         serialized_data = UserDataSerializer(paginated_qs, many=True)
@@ -1046,8 +1053,7 @@ class StatsAPIView(APIView):
         user = request.user
         allowed_roles = [2, 3, 4]  # Coach, Player, Court
 
-        # 🔐 If Admin
-        if user.user_type == 1:
+        if user.user_type == 1:  # Admin
             assigned_location_ids = user.locations.values_list('id', flat=True)
 
             total_users = User.objects.filter(
@@ -1063,18 +1069,25 @@ class StatsAPIView(APIView):
                 location_id__in=assigned_location_ids
             ).count()
 
-            total_profit = Payment.objects.filter(
-                payment_status='successful',
-                booking__court__location_id__in=assigned_location_ids
-            ).aggregate(total=Sum('amount'))['total'] or 0
+            booking_on_amounts = CourtBooking.objects.filter(
+                court__location_id__in=assigned_location_ids
+            ).values_list('on_amount', flat=True)
 
-        # 🧑‍💼 SuperAdmin sees all
-        else:
+        else:  # SuperAdmin
             total_users = User.objects.filter(user_type__in=allowed_roles).count()
             total_bookings = CourtBooking.objects.count()
             total_courts = Court.objects.count()
-            total_profit = Payment.objects.filter(payment_status='successful') \
-                .aggregate(total=Sum('amount'))['total'] or 0
+
+            booking_on_amounts = CourtBooking.objects.values_list('on_amount', flat=True)
+
+        # ✅ Safely convert on_amounts to float, ignoring bad data
+        def safe_float(val):
+            try:
+                return float(val)
+            except (TypeError, ValueError):
+                return 0.0
+
+        total_profit = sum(safe_float(x) for x in booking_on_amounts)
 
         return Response({
             'total_users': total_users,
@@ -1082,7 +1095,6 @@ class StatsAPIView(APIView):
             'total_courts': total_courts,
             'total_profit': f"${total_profit:.2f}"
         })
-
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]

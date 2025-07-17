@@ -342,10 +342,11 @@ class CourtBookingDataSerializer(serializers.ModelSerializer):
     booking_day = serializers.SerializerMethodField()
     cc_fees = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
+    court_fee_hrs = serializers.SerializerMethodField() 
     # booked_on = serializers.SerializerMethodField()
     class Meta:
         model = CourtBooking
-        fields = ['booking_date', 'start_time', 'duration_time', 'total_price', 'description','court_number','booking_day','cc_fees','tax','on_amount','created_at']
+        fields = ['booking_date', 'start_time', 'duration_time', 'total_price', 'description','court_number','booking_day','cc_fees','tax','on_amount','created_at','court_fee_hrs']
 
     def get_description(self, obj):
         if obj.court and obj.court.location_id:
@@ -372,6 +373,12 @@ class CourtBookingDataSerializer(serializers.ModelSerializer):
             total_price = float(obj.total_price)
             return round(total_price * (tax_percent / 100), 2)
         except (TypeError, ValueError):
+            return 0.0
+        
+    def get_court_fee_hrs(self, obj):
+        try:
+            return float(obj.court.court_fee_hrs)
+        except (AttributeError, ValueError, TypeError):
             return 0.0
 
 
