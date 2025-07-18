@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import *
+import re
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
@@ -25,14 +26,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 
     def validate_first_name(self, value):
-        if not value.isalpha():
-            raise serializers.ValidationError("First name should contain only letters.")
-        return value
+        if not re.fullmatch(r"[A-Za-z ]+", value.strip()):
+            raise serializers.ValidationError("First name can only contain letters and spaces.")
+        return value.strip()
 
     def validate_last_name(self, value):
-        if not value.isalpha():
-            raise serializers.ValidationError("Last name should contain only letters.")
-        return value
+        if not re.fullmatch(r"[A-Za-z ]+", value.strip()):
+            raise serializers.ValidationError("Last name can only contain letters and spaces.")
+        return value.strip()
 
     def validate_email(self, value):
         value = value.lower()  
@@ -310,18 +311,18 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             base_price = float(obj.total_price or 0)
             tax_percent = float(obj.court.tax or 0)
             tax_amount = base_price * (tax_percent / 100)
-            return f"{tax_amount} ({tax_percent}%)"
+            return f"{tax_amount:.2f} ({tax_percent:.2f}%)"
         except (ValueError, TypeError, AttributeError):
-            return "0.0 (0%)"
+            return "0.00 (0.00%)"
 
     def get_cc_fees(self, obj):
         try:
             base_price = float(obj.total_price or 0)
             cc_fees_percent = float(obj.court.cc_fees or 0)
             cc_fee_amount = base_price * (cc_fees_percent / 100)
-            return f"{cc_fee_amount} ({cc_fees_percent}%)"
+            return f"{cc_fee_amount:.2f} ({cc_fees_percent:.2f}%)"
         except (ValueError, TypeError, AttributeError):
-            return "0.0 (0%)"
+            return "0.00 (0.00%)"
 
     def get_on_amount(self, obj):
         try:
