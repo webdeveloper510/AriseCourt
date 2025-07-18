@@ -435,7 +435,7 @@ class UsersDataSerializer(serializers.ModelSerializer):
 class CourtDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = Court
-        fields = ['id', 'court_number', 'tax', 'cc_fees']
+        fields = ['id', 'court_number', 'tax', 'cc_fees','court_fee_hrs']
 
 class CourtBookingWithUserSerializer(serializers.ModelSerializer):
     user = UsersDataSerializer(read_only=True)
