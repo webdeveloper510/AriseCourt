@@ -966,8 +966,8 @@ class StatsAPIView(APIView):
             assigned_location_ids = user.locations.values_list('id', flat=True)
 
             total_users = User.objects.filter(
-                user_type__in=allowed_roles,
-                court_bookings__court__location_id__in=assigned_location_ids
+            user_type__in=allowed_roles,
+            locations__id__in=assigned_location_ids  # Link through M2M relationship
             ).distinct().count()
 
             total_bookings = CourtBooking.objects.filter(
@@ -1318,101 +1318,183 @@ class PaymentSuccessAPIView(APIView):
 
 
 
-
+  
 class LocationLoginView(APIView):
     def post(self, request):
-        email = request.data.get("email", "").strip().lower()
-        password = request.data.get("password")
-        location_id = request.data.get("location_id")
-        court_id = request.data.get("court_id")
+        email        = request.data.get("email")
+        password     = request.data.get("password")
+        court_id     = request.data.get("court_id")
+        location_id  = request.data.get("location_id")
 
-        # ✅ Validate required fields
-        if not (email and password and location_id and court_id):
-            return Response({
-                "message": "Email, password, location_id, and court_id are required.",
-                "code": 400
-            }, status=200)
+        if not (email and password and location_id):
+            return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
 
+        # Get user by email and location
         try:
-            location_id = int(location_id)
-        except (TypeError, ValueError):
-            return Response({
-                "message": "Invalid location_id format.",
-                "code": 400
-            }, status=200)
-
-        try:
-            court_id = int(court_id)
-        except (TypeError, ValueError):
-            return Response({
-                "message": "Invalid court_id format.",
-                "code": 400
-            }, status=200)
-
-        # ✅ Use current time
-        now = datetime.now()
-        end_date = now + timedelta(days=7)
-
-        try:
-            user = User.objects.get(email__iexact=email, locations__id=location_id)
+            user = User.objects.get(email=email, location_id=location_id)
         except User.DoesNotExist:
-            return Response({
-                "message": "Invalid email or location.",
-                "code": 400
-            }, status=200)
+            return Response({"message": "Invalid email or location.", "code": 400}, status=200)
 
+        # Check password
         if not check_password(password, user.password):
-            return Response({
-                "message": "Incorrect password.",
-                "code": 400
-            }, status=200)
+            return Response({"message": "Incorrect password.", "code": 400}, status=200)
 
+        # Get court belonging to location
         try:
             court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
-            return Response({
-                "message": "Invalid court for this location.",
-                "code": 400
-            }, status=200)
+            return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
 
-        # ✅ Fetch bookings from now to next 7 days
-        bookings = CourtBooking.objects.filter(
-            court=court,
-            booking_date__range=(now.date(), end_date.date())
-        ).order_by("booking_date", "start_time")
+        # Set time slots logic
+        start_time = court.start_time or time(9, 0)
+        end_time = court.end_time or time(21, 0)
+
+        now = datetime.now()
+        if now.minute > 0:
+            now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+        else:
+            now = now.replace(minute=0, second=0, microsecond=0)
+
+        today = date.today()
+        bookings = CourtBooking.objects.filter(court=court, booking_date=today)
 
         slots = []
-        added_booking_ids = set()
+        for i in range(4):
+            slot_start = now + timedelta(hours=i)
+            slot_end = slot_start + timedelta(hours=1)
 
-        for booked in bookings:
-            booking_start = datetime.combine(booked.booking_date, booked.start_time)
-            if booking_start < now:
-                continue  # ⛔ Skip past bookings
-
-            if booked.id in added_booking_ids:
-                continue
-
-            slots.append({
-                "code": len(slots) + 1,
-                "court_id": court.id,
-                "location_id": court.location_id.id,
-                "court_number": court.court_number,
-                "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
-                "status": "BOOKED",
-                "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
-                "start_time": booked.start_time.strftime("%H:%M"),
-                "end_time": booked.end_time.strftime("%H:%M")
-            })
-
-            added_booking_ids.add(booked.id)
-
-            if len(slots) == 4:
+            if slot_end.time() > end_time:
                 break
 
-        return Response({
-            "slots": slots,
-            "location_id": court.location_id.id
-        }, status=200)
+            booked = None
+            for b in bookings:
+                b_start = datetime.combine(today, b.start_time)
+                b_end = datetime.combine(today, b.end_time)
+                if b_start <= slot_start < b_end:
+                    booked = b
+                    break
+
+            if booked:
+                slots.append({
+                    "code": i + 1,
+                    "court_id": court.id,
+                    "location_id": court.location_id.id,
+                    "court_number":court.court_number,
+                    "booking_date":bookings.booking_date,
+                    "status": "BOOKED",
+                    "user_name": booked.user.first_name,
+                    "start_time": booked.start_time.strftime("%H:%M"),
+                    "end_time": booked.end_time.strftime("%H:%M")
+                })
+            else:
+                slots.append({
+                    "code": i + 1,
+                    "court_id": court.id,
+                    "location_id": court.location_id.id,
+                    "status": "OPEN",
+                    "start_time": slot_start.strftime("%H:%M"),
+                    "end_time": slot_end.strftime("%H:%M")
+                })
+
+        return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
+
+
+
+
+# class LocationLoginView(APIView):
+#     def post(self, request):
+#         email = request.data.get("email", "").strip().lower()
+#         password = request.data.get("password")
+#         location_id = request.data.get("location_id")
+#         court_id = request.data.get("court_id")
+
+#         # ✅ Validate required fields
+#         if not (email and password and location_id and court_id):
+#             return Response({
+#                 "message": "Email, password, location_id, and court_id are required.",
+#                 "code": 400
+#             }, status=200)
+
+#         try:
+#             location_id = int(location_id)
+#         except (TypeError, ValueError):
+#             return Response({
+#                 "message": "Invalid location_id format.",
+#                 "code": 400
+#             }, status=200)
+
+#         try:
+#             court_id = int(court_id)
+#         except (TypeError, ValueError):
+#             return Response({
+#                 "message": "Invalid court_id format.",
+#                 "code": 400
+#             }, status=200)
+
+#         # ✅ Use current time
+#         now = datetime.now()
+#         end_date = now + timedelta(days=7)
+
+#         try:
+#             user = User.objects.get(email__iexact=email, locations__id=location_id)
+#         except User.DoesNotExist:
+#             return Response({
+#                 "message": "Invalid email or location.",
+#                 "code": 400
+#             }, status=200)
+
+#         if not check_password(password, user.password):
+#             return Response({
+#                 "message": "Incorrect password.",
+#                 "code": 400
+#             }, status=200)
+
+#         try:
+#             court = Court.objects.get(id=court_id, location_id=location_id)
+#         except Court.DoesNotExist:
+#             return Response({
+#                 "message": "Invalid court for this location.",
+#                 "code": 400
+#             }, status=200)
+
+#         # ✅ Fetch bookings from now to next 7 days
+#         bookings = CourtBooking.objects.filter(
+#             court=court,
+#             booking_date__range=(now.date(), end_date.date())
+#         ).order_by("booking_date", "start_time")
+
+#         slots = []
+#         added_booking_ids = set()
+
+#         for booked in bookings:
+#             booking_start = datetime.combine(booked.booking_date, booked.start_time)
+#             if booking_start < now:
+#                 continue  # ⛔ Skip past bookings
+
+#             if booked.id in added_booking_ids:
+#                 continue
+
+#             slots.append({
+#                 "code": len(slots) + 1,
+#                 "court_id": court.id,
+#                 "location_id": court.location_id.id,
+#                 "court_number": court.court_number, 
+#                 "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
+#                 "status": "BOOKED",
+#                 "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
+#                 "start_time": booked.start_time.strftime("%H:%M"),
+#                 "end_time": booked.end_time.strftime("%H:%M")
+#             })
+
+#             added_booking_ids.add(booked.id)
+
+#             if len(slots) == 4:
+#                 break
+
+#         return Response({
+#             "slots": slots,
+#             "location_id": court.location_id.id
+#         }, status=200)
 
 
 
@@ -1455,9 +1537,112 @@ class UsersInMyLocationView(APIView):
 
 
 
+# class AdminCourtBookingListView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+
+#     def get(self, request):
+#         admin = request.user
+
+#         if admin.user_type != 1:
+#             raise PermissionDenied("Only admins can access this data.")
+
+#         # ✅ Step 1: Get location IDs assigned to admin
+#         assigned_location_ids = admin.locations.values_list('id', flat=True)
+
+#         if not assigned_location_ids:
+#             return Response({
+#                 "message": "Admin is not assigned to any location.",
+#                 "status_code": 400
+#             }, status=400)
+
+#         # ✅ Step 2: Get courts in those locations
+#         court_ids = Court.objects.filter(location_id__in=assigned_location_ids).values_list('id', flat=True)
+
+#         if not court_ids:
+#             return Response({
+#                 "message": "No courts found for assigned locations.",
+#                 "status_code": 200,
+#                 "results": []
+#             }, status=200)
+
+#         # ✅ Step 3: Filter bookings
+#         bookings = CourtBooking.objects.filter(
+#             court_id__in=court_ids,
+#             user__locations__id__in=assigned_location_ids
+#         ).select_related('court', 'user').distinct()
+
+#         # ✅ Step 4: Time-based filter
+#         status_param = request.query_params.get('status')  # 'past' or 'upcoming'
+#         now = timezone.now()
+#         today = now.date()
+#         time_now = now.time()
+
+#         if status_param == 'past':
+#             bookings = bookings.filter(
+#                 Q(booking_date__lt=today) |
+#                 Q(booking_date=today, end_time__lt=time_now)
+#             )
+#         elif status_param == 'upcoming':
+#             bookings = bookings.filter(
+#                 Q(booking_date__gt=today) |
+#                 Q(booking_date=today, end_time__gte=time_now)
+#             )
+
+
+#         status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
+#         now = timezone.now()
+
+#         if status_param == 'past':
+#             bookings = bookings.filter(
+#                 Q(booking_date__lt=now.date()) |
+#                 Q(booking_date=now.date(), end_time__lt=now.time())
+#             )
+#         elif status_param == 'upcoming':
+#             bookings = bookings.filter(
+#                 Q(booking_date__gt=now.date()) |
+#                 Q(booking_date=now.date(), end_time__gte=now.time())
+#             )
+
+#         # # ✅ Step 4.5: Optional date range filter
+#         start_date = request.query_params.get('start_date')
+#         end_date = request.query_params.get('end_date')
+
+#         if start_date and end_date:
+#             start = parse_date(start_date)
+#             end = parse_date(end_date)
+#             if start and end:
+#                 bookings = bookings.filter(booking_date__range=(start, end))
+
+
+
+
+#         # ✅ Step 5: Optional search filter
+#         search = request.query_params.get('search')
+#         if search:
+#             bookings = bookings.filter(
+#                 Q(user__first_name__icontains=search) |
+#                 Q(user__last_name__icontains=search) |
+#                 Q(user__email__icontains=search) |
+#                 Q(court__court_number__icontains=search)
+#             )
+
+#         # ✅ Step 6: Order and paginate
+#         bookings = bookings.order_by('booking_date', 'start_time')
+#         paginator = LargeResultsSetPagination()
+#         page = paginator.paginate_queryset(bookings, request)
+#         serializer = AdminCourtBookingSerializer(page, many=True)
+
+#         # ✅ Attach custom fields to paginated response
+#         paginated_response = paginator.get_paginated_response(serializer.data)
+#         paginated_response.data["message"] = "Court bookings fetched successfully."
+#         paginated_response.data["status_code"] = 200
+
+#         return paginated_response
+
+
 class AdminCourtBookingListView(APIView):
     permission_classes = [IsAuthenticated]
-
 
     def get(self, request):
         admin = request.user
@@ -1465,7 +1650,7 @@ class AdminCourtBookingListView(APIView):
         if admin.user_type != 1:
             raise PermissionDenied("Only admins can access this data.")
 
-        # ✅ Step 1: Get location IDs assigned to admin
+        # Step 1: Get location IDs assigned to admin
         assigned_location_ids = admin.locations.values_list('id', flat=True)
 
         if not assigned_location_ids:
@@ -1474,7 +1659,7 @@ class AdminCourtBookingListView(APIView):
                 "status_code": 400
             }, status=400)
 
-        # ✅ Step 2: Get courts in those locations
+        # Step 2: Get courts in those locations
         court_ids = Court.objects.filter(location_id__in=assigned_location_ids).values_list('id', flat=True)
 
         if not court_ids:
@@ -1484,43 +1669,30 @@ class AdminCourtBookingListView(APIView):
                 "results": []
             }, status=200)
 
-        # ✅ Step 3: Filter bookings
+        # Step 3: Filter bookings
         bookings = CourtBooking.objects.filter(
             court_id__in=court_ids,
             user__locations__id__in=assigned_location_ids
         ).select_related('court', 'user').distinct()
 
-        # ✅ Step 4: Time-based filter
-        status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
+        # Step 4: Time-based filter
+        status_param = request.query_params.get('status')  # 'past' or 'upcoming'
         now = timezone.now()
+        today = now.date()
+        time_now = now.time()
 
         if status_param == 'past':
             bookings = bookings.filter(
-                Q(booking_date__lt=now.date()) |
-                Q(booking_date=now.date(), end_time__lt=now.time())
+                Q(booking_date__lt=today) |
+                Q(booking_date=today, end_time__lt=time_now)
             )
         elif status_param == 'upcoming':
             bookings = bookings.filter(
-                Q(booking_date__gt=now.date()) |
-                Q(booking_date=now.date(), end_time__gte=now.time())
+                Q(booking_date__gt=today) |
+                Q(booking_date=today, end_time__gte=time_now)
             )
 
-
-        status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
-        now = timezone.now()
-
-        if status_param == 'past':
-            bookings = bookings.filter(
-                Q(booking_date__lt=now.date()) |
-                Q(booking_date=now.date(), end_time__lt=now.time())
-            )
-        elif status_param == 'upcoming':
-            bookings = bookings.filter(
-                Q(booking_date__gt=now.date()) |
-                Q(booking_date=now.date(), end_time__gte=now.time())
-            )
-
-        # # ✅ Step 4.5: Optional date range filter
+        # Step 4.5: Optional date range filter
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
 
@@ -1530,10 +1702,7 @@ class AdminCourtBookingListView(APIView):
             if start and end:
                 bookings = bookings.filter(booking_date__range=(start, end))
 
-
-
-
-        # ✅ Step 5: Optional search filter
+        # Step 5: Optional search filter
         search = request.query_params.get('search')
         if search:
             bookings = bookings.filter(
@@ -1543,13 +1712,13 @@ class AdminCourtBookingListView(APIView):
                 Q(court__court_number__icontains=search)
             )
 
-        # ✅ Step 6: Order and paginate
+        # Step 6: Order and paginate
         bookings = bookings.order_by('booking_date', 'start_time')
         paginator = LargeResultsSetPagination()
         page = paginator.paginate_queryset(bookings, request)
         serializer = AdminCourtBookingSerializer(page, many=True)
 
-        # ✅ Attach custom fields to paginated response
+        # Attach custom fields to paginated response
         paginated_response = paginator.get_paginated_response(serializer.data)
         paginated_response.data["message"] = "Court bookings fetched successfully."
         paginated_response.data["status_code"] = 200

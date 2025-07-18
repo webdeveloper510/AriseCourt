@@ -11,6 +11,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .mail import MailUtils
 from django.contrib.auth.hashers import make_password
 from datetime import datetime, timedelta
+from decimal import Decimal, ROUND_DOWN, InvalidOperation
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -300,6 +301,45 @@ class CourtBookingSerializer(serializers.ModelSerializer):
          'tax', 'cc_fees'
         ]
        
+    # def get_amount(self, obj):
+    #     try:
+    #         return float(obj.total_price or 0)
+    #     except (ValueError, TypeError):
+    #         return 0.0
+
+    # def get_tax(self, obj):
+    #     try:
+    #         base_price = float(obj.total_price or 0)
+    #         tax_percent = float(obj.court.tax or 0)
+    #         tax_amount = base_price * (tax_percent / 100)
+    #         return f"{tax_amount:.2f} ({tax_percent:.2f}%)"
+    #     except (ValueError, TypeError, AttributeError):
+    #         return "0.00 (0.00%)"
+
+    # def get_cc_fees(self, obj):
+    #     try:
+    #         base_price = float(obj.total_price or 0)
+    #         cc_fees_percent = float(obj.court.cc_fees or 0)
+    #         cc_fee_amount = base_price * (cc_fees_percent / 100)
+    #         return f"{cc_fee_amount:.2f} ({cc_fees_percent:.2f}%)"
+    #     except (ValueError, TypeError, AttributeError):
+    #         return "0.00 (0.00%)"
+
+    # def get_on_amount(self, obj):
+    #     try:
+    #         base_price = float(obj.total_price or 0)
+    #         tax_percent = float(obj.court.tax or 0)
+    #         cc_fees_percent = float(obj.court.cc_fees or 0)
+    #         tax_amount = base_price * (tax_percent / 100)
+    #         cc_fee_amount = base_price * (cc_fees_percent / 100)
+    #         return base_price + tax_amount + cc_fee_amount  # No rounding
+    #     except (ValueError, TypeError, AttributeError):
+    #         return 0.0
+        
+
+    # def get_summary(self, obj):
+    #     return self.get_on_amount(obj)
+
     def get_amount(self, obj):
         try:
             return float(obj.total_price or 0)
@@ -311,18 +351,24 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             base_price = float(obj.total_price or 0)
             tax_percent = float(obj.court.tax or 0)
             tax_amount = base_price * (tax_percent / 100)
-            return f"{tax_amount:.2f} ({tax_percent:.2f}%)"
+            return {
+                "amount": tax_amount,
+                "percent": tax_percent
+            }
         except (ValueError, TypeError, AttributeError):
-            return "0.00 (0.00%)"
+            return {"amount": 0.0, "percent": 0.0}
 
     def get_cc_fees(self, obj):
         try:
             base_price = float(obj.total_price or 0)
             cc_fees_percent = float(obj.court.cc_fees or 0)
             cc_fee_amount = base_price * (cc_fees_percent / 100)
-            return f"{cc_fee_amount:.2f} ({cc_fees_percent:.2f}%)"
+            return {
+                "amount": cc_fee_amount,
+                "percent": cc_fees_percent
+            }
         except (ValueError, TypeError, AttributeError):
-            return "0.00 (0.00%)"
+            return {"amount": 0.0, "percent": 0.0}
 
     def get_on_amount(self, obj):
         try:
@@ -331,13 +377,14 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             cc_fees_percent = float(obj.court.cc_fees or 0)
             tax_amount = base_price * (tax_percent / 100)
             cc_fee_amount = base_price * (cc_fees_percent / 100)
-            return base_price + tax_amount + cc_fee_amount  # No rounding
+            final_amount = base_price + tax_amount + cc_fee_amount
+            return final_amount  # Full precision
         except (ValueError, TypeError, AttributeError):
             return 0.0
-        
 
     def get_summary(self, obj):
         return self.get_on_amount(obj)
+
 
     
 
@@ -513,38 +560,78 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
         return ", ".join(filter(None, map(str.strip, filter(None, parts))))
 
 
+    # def get_tax(self, obj):
+    #     try:
+    #         tax_rate = float(obj.court.tax or 0)
+    #         total_price = float(obj.total_price or 0)
+    #         tax = total_price * (tax_rate / 100)
+    #         return f"{round(tax, 2)} ({tax_rate}%)"
+    #     except Exception:
+    #         return None
+
+    # def get_cc_fees(self, obj):
+    #     try:
+    #         cc_rate = float(obj.court.cc_fees or 0)
+    #         total_price = float(obj.total_price or 0)
+    #         cc_fee = total_price * (cc_rate / 100)
+    #         return f"{round(cc_fee, 2)} ({cc_rate}%)"
+    #     except Exception:
+    #         return None
+
+    # def get_on_amount(self, obj):
+    #     try:
+    #         total_price = float(obj.total_price or 0)
+    #         tax = float(obj.court.tax or 0)
+    #         cc = float(obj.court.cc_fees or 0)
+
+    #         total_tax = total_price * (tax / 100)
+    #         total_cc = total_price * (cc / 100)
+    #         return round(total_price + total_tax + total_cc, 2)
+    #     except Exception:
+    #         return None
+
+    # def get_total_price(self, obj):
+    #     return float(obj.total_price or 0)
+
     def get_tax(self, obj):
         try:
-            tax_rate = float(obj.court.tax or 0)
-            total_price = float(obj.total_price or 0)
-            tax = total_price * (tax_rate / 100)
-            return f"{round(tax, 2)} ({tax_rate}%)"
+            tax_rate = Decimal(obj.court.tax or 0)
+            total_price = Decimal(obj.total_price or 0)
+            tax = (total_price * tax_rate / 100).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            return f"{format_decimal(tax)} ({format_decimal(tax_rate)}%)"
         except Exception:
             return None
 
     def get_cc_fees(self, obj):
         try:
-            cc_rate = float(obj.court.cc_fees or 0)
-            total_price = float(obj.total_price or 0)
-            cc_fee = total_price * (cc_rate / 100)
-            return f"{round(cc_fee, 2)} ({cc_rate}%)"
+            cc_rate = Decimal(obj.court.cc_fees or 0)
+            total_price = Decimal(obj.total_price or 0)
+            cc_fee = (total_price * cc_rate / 100).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            return f"{format_decimal(cc_fee)} ({format_decimal(cc_rate)}%)"
         except Exception:
             return None
 
     def get_on_amount(self, obj):
         try:
-            total_price = float(obj.total_price or 0)
-            tax = float(obj.court.tax or 0)
-            cc = float(obj.court.cc_fees or 0)
+            total_price = Decimal(obj.total_price or 0)
+            tax = Decimal(obj.court.tax or 0)
+            cc = Decimal(obj.court.cc_fees or 0)
 
-            total_tax = total_price * (tax / 100)
-            total_cc = total_price * (cc / 100)
-            return round(total_price + total_tax + total_cc, 2)
+            total_tax = (total_price * tax / 100).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            total_cc = (total_price * cc / 100).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+            final_amount = (total_price + total_tax + total_cc).quantize(Decimal("0.01"), rounding=ROUND_DOWN)
+
+            return format_decimal(final_amount)
         except Exception:
             return None
 
     def get_total_price(self, obj):
-        return float(obj.total_price or 0)
+        try:
+            return format_decimal(Decimal(obj.total_price or 0))
+        except Exception:
+            return "0"
+
+    
 
 
 
