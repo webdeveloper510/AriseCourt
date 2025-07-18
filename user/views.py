@@ -1719,7 +1719,6 @@ class BookingListView(APIView):
 
         # Base queryset depending on user type
         if user.user_type == 0:  # SuperAdmin
-            # SuperAdmin sees all bookings
             bookings = CourtBooking.objects.select_related('user', 'court__location_id')
         elif user.user_type == 1:  # Admin
             assigned_locations = user.locations.all()
@@ -1727,11 +1726,7 @@ class BookingListView(APIView):
                 Q(court__location_id__in=assigned_locations) | Q(user=user)
             ).select_related('user', 'court__location_id')
         else:
-            queryset = CourtBooking.objects.none()
-
-        # ✅ Assign bookings from queryset
-        bookings = queryset
-
+            bookings = CourtBooking.objects.none()  # Fix here
 
         # ✅ Filter by user search
         if search:
