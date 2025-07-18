@@ -357,8 +357,15 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         except (ValueError, TypeError, AttributeError):
             return 0.0
 
+    # def get_summary(self, obj):
+    #     return self.get_on_amount(obj)
+
+
     def get_summary(self, obj):
-        return self.get_on_amount(obj)
+        try:
+            return round(self.get_on_amount(obj), 2)
+        except:
+            return 0.00
 
 
     

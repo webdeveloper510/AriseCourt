@@ -799,6 +799,11 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             cc_fee_amount = on_amount * (cc_fees_percent / 100)
             total = on_amount + tax_amount + cc_fee_amount
             data['on_amount'] = str(total)  # ✅ Save to DB
+            data['on_amount'] = "{:.2f}".format(on_amount)  # force 2 decimal places
+            data['total'] = total
+
+
+
         except:
             return Response({"message": "Failed to calculate on_amount", 'code': '400'}, status=status.HTTP_200_OK)
 
