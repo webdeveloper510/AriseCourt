@@ -1324,182 +1324,281 @@ class PaymentSuccessAPIView(APIView):
 
 
   
+# class LocationLoginView(APIView):
+    # def post(self, request):
+    #     email        = request.data.get("email")
+    #     password     = request.data.get("password")
+    #     court_id     = request.data.get("court_id")
+    #     location_id  = request.data.get("location_id")
+
+    #     if not (email and password and location_id):
+    #         return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
+
+    #     # Get user by email and location
+    #     try:
+    #         user = User.objects.get(email=email, locations__id=location_id)
+    #     except User.DoesNotExist:
+    #         return Response({"message": "Invalid email or location.", "code": 400}, status=200)
+
+    #     # Check password
+    #     if not check_password(password, user.password):
+    #         return Response({"message": "Incorrect password.", "code": 400}, status=200)
+
+    #     # Get court belonging to location
+    #     try:
+    #         court = Court.objects.get(id=court_id, location_id=location_id)
+    #     except Court.DoesNotExist:
+    #         return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
+
+    #     # Set time slots logic
+    #     start_time = court.start_time or time(9, 0)
+    #     end_time = court.end_time or time(21, 0)
+
+    #     now = datetime.now()
+    #     if now.minute > 0:
+    #         now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
+    #     else:
+    #         now = now.replace(minute=0, second=0, microsecond=0)
+
+    #     today = date.today()
+    #     bookings = CourtBooking.objects.filter(court=court, booking_date=today)
+
+    #     slots = []
+    #     for i in range(4):
+    #         slot_start = now + timedelta(hours=i)
+    #         slot_end = slot_start + timedelta(hours=1)
+
+    #         if slot_end.time() > end_time:
+    #             break
+
+    #         booked = None
+    #         for b in bookings:
+    #             b_start = datetime.combine(today, b.start_time)
+    #             b_end = datetime.combine(today, b.end_time)
+    #             if b_start <= slot_start < b_end:
+    #                 booked = b
+    #                 break
+
+    #         if booked:
+    #             slots.append({
+    #                 "code": i + 1,
+    #                 "court_id": court.id,
+    #                 "location_id": court.location_id.id,
+    #                 "court_number":court.court_number,
+    #                 "booking_date":bookings.booking_date,
+    #                 "status": "BOOKED",
+    #                 "user_name": booked.user.first_name,
+    #                 "start_time": booked.start_time.strftime("%H:%M"),
+    #                 "end_time": booked.end_time.strftime("%H:%M")
+    #             })
+    #         else:
+    #             slots.append({
+    #                 "code": i + 1,
+    #                 "court_id": court.id,
+    #                 "location_id": court.location_id.id,
+    #                 "status": "OPEN",
+    #                 "start_time": slot_start.strftime("%H:%M"),
+    #                 "end_time": slot_end.strftime("%H:%M")
+    #             })
+
+    #     return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
+
+
+
+
 class LocationLoginView(APIView):
+
     def post(self, request):
-        email        = request.data.get("email")
-        password     = request.data.get("password")
-        court_id     = request.data.get("court_id")
-        location_id  = request.data.get("location_id")
+        email = request.data.get("email", "").strip().lower()
+        password = request.data.get("password")
+        location_id = request.data.get("location_id")
+        court_id = request.data.get("court_id")
 
-        if not (email and password and location_id):
-            return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
+        # ✅ Validate required fields
+        if not (email and password and location_id and court_id):
+            return Response({
+                "message": "Email, password, location_id, and court_id are required.",
+                "code": 400
+            }, status=200)
 
-        # Get user by email and location
         try:
-            user = User.objects.get(email=email, location_id=location_id)
+            location_id = int(location_id)
+        except (TypeError, ValueError):
+            return Response({
+                "message": "Invalid location_id format.",
+                "code": 400
+            }, status=200)
+
+        try:
+            court_id = int(court_id)
+        except (TypeError, ValueError):
+            return Response({
+                "message": "Invalid court_id format.",
+                "code": 400
+            }, status=200)
+
+        # ✅ Use current time
+        now = datetime.now()
+
+        try:
+            user = User.objects.get(email__iexact=email, locations__id=location_id)
         except User.DoesNotExist:
-            return Response({"message": "Invalid email or location.", "code": 400}, status=200)
+            return Response({
+                "message": "Invalid email or location.",
+                "code": 400
+            }, status=200)
 
-        # Check password
         if not check_password(password, user.password):
-            return Response({"message": "Incorrect password.", "code": 400}, status=200)
+            return Response({
+                "message": "Incorrect password.",
+                "code": 400
+            }, status=200)
 
-        # Get court belonging to location
         try:
             court = Court.objects.get(id=court_id, location_id=location_id)
         except Court.DoesNotExist:
-            return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
+            return Response({
+                "message": "Invalid court for this location.",
+                "code": 400
+            }, status=200)
 
-        # Set time slots logic
-        start_time = court.start_time or time(9, 0)
-        end_time = court.end_time or time(21, 0)
-
-        now = datetime.now()
-        if now.minute > 0:
-            now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-        else:
-            now = now.replace(minute=0, second=0, microsecond=0)
-
-        today = date.today()
-        bookings = CourtBooking.objects.filter(court=court, booking_date=today)
+        # ✅ Fetch bookings for current date only
+        bookings = CourtBooking.objects.filter(
+            court=court,
+            booking_date=now.date()
+        ).order_by("start_time")
 
         slots = []
-        for i in range(4):
-            slot_start = now + timedelta(hours=i)
-            slot_end = slot_start + timedelta(hours=1)
+        added_booking_ids = set()
 
-            if slot_end.time() > end_time:
+        for booked in bookings:
+            booking_start = datetime.combine(booked.booking_date, booked.start_time)
+            if booking_start < now:
+                continue  # ⛔ Skip past bookings for today
+
+            if booked.id in added_booking_ids:
+                continue
+
+            slots.append({
+                "code": len(slots) + 1,
+                "court_id": court.id,
+                "location_id": court.location_id.id,
+                "court_number": court.court_number,
+                "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
+                "status": "BOOKED",
+                "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
+                "start_time": booked.start_time.strftime("%H:%M"),
+                "end_time": booked.end_time.strftime("%H:%M")
+            })
+
+            added_booking_ids.add(booked.id)
+
+            if len(slots) == 4:
                 break
 
-            booked = None
-            for b in bookings:
-                b_start = datetime.combine(today, b.start_time)
-                b_end = datetime.combine(today, b.end_time)
-                if b_start <= slot_start < b_end:
-                    booked = b
-                    break
-
-            if booked:
-                slots.append({
-                    "code": i + 1,
-                    "court_id": court.id,
-                    "location_id": court.location_id.id,
-                    "court_number":court.court_number,
-                    "booking_date":bookings.booking_date,
-                    "status": "BOOKED",
-                    "user_name": booked.user.first_name,
-                    "start_time": booked.start_time.strftime("%H:%M"),
-                    "end_time": booked.end_time.strftime("%H:%M")
-                })
-            else:
-                slots.append({
-                    "code": i + 1,
-                    "court_id": court.id,
-                    "location_id": court.location_id.id,
-                    "status": "OPEN",
-                    "start_time": slot_start.strftime("%H:%M"),
-                    "end_time": slot_end.strftime("%H:%M")
-                })
-
-        return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
+        return Response({
+            "slots": slots,
+            "location_id": court.location_id.id
+        }, status=200)
 
 
 
 
-# class LocationLoginView(APIView):
-#     def post(self, request):
-#         email = request.data.get("email", "").strip().lower()
-#         password = request.data.get("password")
-#         location_id = request.data.get("location_id")
-#         court_id = request.data.get("court_id")
 
-#         # ✅ Validate required fields
-#         if not (email and password and location_id and court_id):
-#             return Response({
-#                 "message": "Email, password, location_id, and court_id are required.",
-#                 "code": 400
-#             }, status=200)
 
-#         try:
-#             location_id = int(location_id)
-#         except (TypeError, ValueError):
-#             return Response({
-#                 "message": "Invalid location_id format.",
-#                 "code": 400
-#             }, status=200)
+    # def post(self, request):
+    #     email = request.data.get("email", "").strip().lower()
+    #     password = request.data.get("password")
+    #     location_id = request.data.get("location_id")
+    #     court_id = request.data.get("court_id")
 
-#         try:
-#             court_id = int(court_id)
-#         except (TypeError, ValueError):
-#             return Response({
-#                 "message": "Invalid court_id format.",
-#                 "code": 400
-#             }, status=200)
+    #     # ✅ Validate required fields
+    #     if not (email and password and location_id and court_id):
+    #         return Response({
+    #             "message": "Email, password, location_id, and court_id are required.",
+    #             "code": 400
+    #         }, status=200)
 
-#         # ✅ Use current time
-#         now = datetime.now()
-#         end_date = now + timedelta(days=7)
+    #     try:
+    #         location_id = int(location_id)
+    #     except (TypeError, ValueError):
+    #         return Response({
+    #             "message": "Invalid location_id format.",
+    #             "code": 400
+    #         }, status=200)
 
-#         try:
-#             user = User.objects.get(email__iexact=email, locations__id=location_id)
-#         except User.DoesNotExist:
-#             return Response({
-#                 "message": "Invalid email or location.",
-#                 "code": 400
-#             }, status=200)
+    #     try:
+    #         court_id = int(court_id)
+    #     except (TypeError, ValueError):
+    #         return Response({
+    #             "message": "Invalid court_id format.",
+    #             "code": 400
+    #         }, status=200)
 
-#         if not check_password(password, user.password):
-#             return Response({
-#                 "message": "Incorrect password.",
-#                 "code": 400
-#             }, status=200)
+    #     # ✅ Use current time
+    #     now = datetime.now()
+    #     end_date = now + timedelta(days=7)
 
-#         try:
-#             court = Court.objects.get(id=court_id, location_id=location_id)
-#         except Court.DoesNotExist:
-#             return Response({
-#                 "message": "Invalid court for this location.",
-#                 "code": 400
-#             }, status=200)
+    #     try:
+    #         user = User.objects.get(email__iexact=email, locations__id=location_id)
+    #     except User.DoesNotExist:
+    #         return Response({
+    #             "message": "Invalid email or location.",
+    #             "code": 400
+    #         }, status=200)
 
-#         # ✅ Fetch bookings from now to next 7 days
-#         bookings = CourtBooking.objects.filter(
-#             court=court,
-#             booking_date__range=(now.date(), end_date.date())
-#         ).order_by("booking_date", "start_time")
+    #     if not check_password(password, user.password):
+    #         return Response({
+    #             "message": "Incorrect password.",
+    #             "code": 400
+    #         }, status=200)
 
-#         slots = []
-#         added_booking_ids = set()
+    #     try:
+    #         court = Court.objects.get(id=court_id, location_id=location_id)
+    #     except Court.DoesNotExist:
+    #         return Response({
+    #             "message": "Invalid court for this location.",
+    #             "code": 400
+    #         }, status=200)
 
-#         for booked in bookings:
-#             booking_start = datetime.combine(booked.booking_date, booked.start_time)
-#             if booking_start < now:
-#                 continue  # ⛔ Skip past bookings
+    #     # ✅ Fetch bookings from now to next 7 days
+    #     bookings = CourtBooking.objects.filter(
+    #         court=court,
+    #         booking_date__range=(now.date(), end_date.date())
+    #     ).order_by("booking_date", "start_time")
 
-#             if booked.id in added_booking_ids:
-#                 continue
+    #     slots = []
+    #     added_booking_ids = set()
 
-#             slots.append({
-#                 "code": len(slots) + 1,
-#                 "court_id": court.id,
-#                 "location_id": court.location_id.id,
-#                 "court_number": court.court_number, 
-#                 "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
-#                 "status": "BOOKED",
-#                 "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
-#                 "start_time": booked.start_time.strftime("%H:%M"),
-#                 "end_time": booked.end_time.strftime("%H:%M")
-#             })
+    #     for booked in bookings:
+    #         booking_start = datetime.combine(booked.booking_date, booked.start_time)
+    #         if booking_start < now:
+    #             continue  # ⛔ Skip past bookings
 
-#             added_booking_ids.add(booked.id)
+    #         if booked.id in added_booking_ids:
+    #             continue
 
-#             if len(slots) == 4:
-#                 break
+    #         slots.append({
+    #             "code": len(slots) + 1,
+    #             "court_id": court.id,
+    #             "location_id": court.location_id.id,
+    #             "court_number": court.court_number, 
+    #             "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
+    #             "status": "BOOKED",
+    #             "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
+    #             "start_time": booked.start_time.strftime("%H:%M"),
+    #             "end_time": booked.end_time.strftime("%H:%M")
+    #         })
 
-#         return Response({
-#             "slots": slots,
-#             "location_id": court.location_id.id
-#         }, status=200)
+    #         added_booking_ids.add(booked.id)
+
+    #         if len(slots) == 4:
+    #             break
+
+    #     return Response({
+    #         "slots": slots,
+    #         "location_id": court.location_id.id
+    #     }, status=200)
 
 
 
