@@ -351,24 +351,18 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             base_price = float(obj.total_price or 0)
             tax_percent = float(obj.court.tax or 0)
             tax_amount = base_price * (tax_percent / 100)
-            return {
-                "amount": tax_amount,
-                "percent": tax_percent
-            }
+            return tax_amount
         except (ValueError, TypeError, AttributeError):
-            return {"amount": 0.0, "percent": 0.0}
+            return 0.0
 
     def get_cc_fees(self, obj):
         try:
             base_price = float(obj.total_price or 0)
             cc_fees_percent = float(obj.court.cc_fees or 0)
             cc_fee_amount = base_price * (cc_fees_percent / 100)
-            return {
-                "amount": cc_fee_amount,
-                "percent": cc_fees_percent
-            }
+            return cc_fee_amount
         except (ValueError, TypeError, AttributeError):
-            return {"amount": 0.0, "percent": 0.0}
+            return 0.0
 
     def get_on_amount(self, obj):
         try:
@@ -466,6 +460,20 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
             'total_price', 'on_amount', 'book_for_four_weeks', 'status',
             'created_at', 'updated_at', 'user', 'court'  # Include 'court'
         ]
+
+    def get_tax(self, obj):
+        """Calculate tax as percentage of total_price using court.tax without rounding"""
+        if obj.total_price and obj.court and obj.court.tax:
+            tax = Decimal(str(obj.total_price)) * Decimal(str(obj.court.tax)) / Decimal('100')
+            return tax.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        return Decimal('0.00')
+
+    def get_cc_fees(self, obj):
+        """Calculate cc_fees as percentage of total_price using court.cc_fees without rounding"""
+        if obj.total_price and obj.court and obj.court.cc_fees:
+            cc = Decimal(str(obj.total_price)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
+            return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        return Decimal('0.00')
     
 
 
