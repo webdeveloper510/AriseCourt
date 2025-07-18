@@ -223,7 +223,7 @@ class UserLoginView(APIView):
 
         if user is None:
             return Response({
-                'message': 'Incorrect Username or Password',
+                'message': 'User details are incorrect or location is not assigned',
                 'code': "400"
             }, status=status.HTTP_200_OK)
 
@@ -267,7 +267,7 @@ class UserLoginView(APIView):
 
             if not user.locations.filter(id=location_id).exists():
                 return Response({
-                    'message': 'You are not assigned to this location.',
+                    'message': 'User details are incorrect or location is not assigned',
                     'code': 400
                 }, status=status.HTTP_200_OK)
 
