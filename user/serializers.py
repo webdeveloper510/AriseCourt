@@ -281,14 +281,13 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     user = UserDataSerializer(read_only=True)
     court = CourtDataSerializer(read_only=True)
     court_id = serializers.PrimaryKeyRelatedField(
-        queryset=Court.objects.all(), source='court', write_only=True
-    )
+    queryset=Court.objects.all(), source='court', write_only=True)
     booking_id = serializers.IntegerField(source='id', read_only=True)
 
     amount = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     cc_fees = serializers.SerializerMethodField()
-    on_amount = serializers.SerializerMethodField()
+    # on_amount = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField() 
 
     class Meta:
@@ -395,19 +394,30 @@ class CourtBookingDataSerializer(serializers.ModelSerializer):
             return 0.0
 
 
-
-class UserDataSerializer(serializers.ModelSerializer):
-    court_bookings = CourtBookingDataSerializer(many=True, read_only=True)
+class UsersDataSerializer(serializers.ModelSerializer):
     country = serializers.SerializerMethodField()
-
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type', 'court_bookings', 'country']
-
+        fields = ['first_name', 'last_name', 'email', 'phone', 'user_type', 'country']
     def get_country(self, obj):
-        if obj.country:
-            return obj.country.name  
-        return None
+        return obj.country.name if obj.country else None
+
+class CourtDataSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Court
+        fields = ['id', 'court_number', 'tax', 'cc_fees']
+
+class CourtBookingWithUserSerializer(serializers.ModelSerializer):
+    user = UsersDataSerializer(read_only=True)
+    court = CourtDataSerializer(read_only=True)
+
+    class Meta:
+        model = CourtBooking
+        fields = [
+            'id', 'booking_date', 'start_time', 'end_time', 'duration_time',
+            'total_price', 'on_amount', 'book_for_four_weeks', 'status',
+            'created_at', 'updated_at', 'user', 'court'  # Include 'court'
+        ]
     
 
 

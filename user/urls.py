@@ -27,6 +27,7 @@ urlpatterns = [
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
     path('reporting-data/', StatsAPIView.as_view(), name='stats'),
     path('user-data/', UserData.as_view(), name='user-data'),
+    path('users-data/', BookingListView.as_view(), name='users-data'),
     path('profile/', ProfileView.as_view(), name='profile'),
     path('check_court_availability/', CourtAvailabilityView.as_view(), name='check_court_availability'),
     path('stripe-webhook/', stripe_webhook, name='stripe-webhook'),

@@ -754,96 +754,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
 
-
-
-    # def create(self, request, *args, **kwargs):
-    #     data = request.data.copy()
-    #     court_id = data.get('court') or data.get('court_id')
-    #     booking_date = data.get('booking_date')
-    #     start = data.get('start_time')
-    #     end = data.get('end_time')
-    #     on_amount = data.get('on_amount')
-
-    #     book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
-
-    #     try:
-    #         start_time = datetime.strptime(start, "%H:%M:%S").time()
-    #         end_time = datetime.strptime(end, "%H:%M:%S").time()
-
-    #         if end_time <= start_time:
-    #             return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
-
-    #         duration = str(datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time))
-    #         data['duration_time'] = duration
-
-    #     except:
-    #         return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
-
-    #     if CourtBooking.objects.filter(
-    #         court_id=court_id,
-    #         booking_date=booking_date,
-    #         start_time__lt=start_time,
-    #         end_time__gt=end_time
-    #     ).filter(
-    #         Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-    #     ).exists():
-    #         return Response({
-    #             "message": "Court is already booked for the selected time.",
-    #             "code": "400"
-    #         }, status=status.HTTP_409_CONFLICT)
-
-    #     serializer = self.get_serializer(data=data)
-    #     serializer.is_valid(raise_exception=True)
-    #     user = request.user
-
-    #     created_bookings = []
-
-    #     # ✅ Main booking
-    #     if user.user_type in [0, 1]:
-    #         main_booking = serializer.save(user=user, status='confirmed')
-    #     else:
-    #         main_booking = serializer.save(user=user)
-
-    #     MailUtils.booking_confirmation_mail(user, main_booking)
-    #     created_bookings.append(main_booking)
-
-    #     # ✅ Create next 3 weekly bookings
-    #     if book_for_four_weeks:
-    #         original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
-    #         for i in range(1, 4):
-    #             next_date = original_date + timedelta(weeks=i)
-
-    #             if not CourtBooking.objects.filter(
-    #                 court_id=court_id,
-    #                 booking_date=next_date,
-    #                 start_time__lt=start_time,
-    #                 end_time__gt=end_time
-    #             ).filter(
-    #                 Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-    #             ).exists():
-    #                 next_booking = CourtBooking.objects.create(
-    #                     user=user,
-    #                     court_id=court_id,
-    #                     booking_date=next_date,
-    #                     start_time=start_time,
-    #                     end_time=end_time,
-    #                     duration_time=duration,
-    #                     book_for_four_weeks=True,
-    #                     on_amount=on_amount,
-    #                     status='confirmed' if user.user_type in [0, 1] else 'pending'
-    #                 )
-    #                 created_bookings.append(next_booking)
-
-    #     # ✅ Return all created bookings
-    #     response_serializer = self.get_serializer(created_bookings, many=True)
-    #     return Response({
-    #         "message": "Booking(s) created successfully.",
-    #         "status_code": status.HTTP_201_CREATED,
-    #         "data": response_serializer.data
-    #     }, status=status.HTTP_201_CREATED)
-
-
-
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
         court_id = data.get('court') or data.get('court_id')
@@ -881,16 +791,14 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         # ✅ Calculate on_amount (total + tax + cc_fees)
         try:
-            base_price = float(data.get('total_price') or 0)
+            on_amount = float(data.get('on_amount') or 0)
             court = Court.objects.get(id=court_id)
             tax_percent = float(court.tax or 0)
             cc_fees_percent = float(court.cc_fees or 0)
-
-            tax_amount = base_price * (tax_percent / 100)
-            cc_fee_amount = base_price * (cc_fees_percent / 100)
-            on_amount = round(base_price + tax_amount + cc_fee_amount, 2)
-
-            data['on_amount'] = str(on_amount)  # ✅ Save to DB
+            tax_amount = on_amount * (tax_percent / 100)
+            cc_fee_amount = on_amount * (cc_fees_percent / 100)
+            total = on_amount + tax_amount + cc_fee_amount
+            data['on_amount'] = str(total)  # ✅ Save to DB
         except:
             return Response({"message": "Failed to calculate on_amount", 'code': '400'}, status=status.HTTP_200_OK)
 
@@ -929,7 +837,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         end_time=end_time,
                         duration_time=duration,
                         book_for_four_weeks=True,
-                        on_amount=str(on_amount),
+                        on_amount=str(total),
                         total_price=data.get('total_price'),
                         status='confirmed' if user.user_type in [0, 1] else 'pending'
                     )
@@ -1781,14 +1689,12 @@ class UserBasicDataView(APIView):
             queryset = User.objects.filter(user_type__gte=2)
 
         elif user.user_type == 1:  # Admin
-            # Step 1: Get locations managed by this admin
-            admin_locations = Location.objects.filter(user=user)
-
-            # Step 2: Get users assigned to those locations (via M2M field)
+            # Step: Get users whose locations overlap with admin's locations
+            admin_locations = user.locations.all()
             queryset = User.objects.filter(
                 user_type__gte=2,
                 locations__in=admin_locations
-            ).distinct()
+            ).exclude(id=user.id).distinct()
 
         else:  # Regular user (Coach, Player, etc.)
             queryset = User.objects.filter(id=user.id)
@@ -1805,4 +1711,41 @@ class UserBasicDataView(APIView):
         paginator = LargeResultsSetPagination()
         paginated_queryset = paginator.paginate_queryset(queryset, request)
         serializer = UserBasicDataSerializer(paginated_queryset, many=True)
+        return paginator.get_paginated_response(serializer.data)
+    
+
+
+
+
+class BookingListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        # Start with all bookings for SuperAdmin, restrict for Admin
+        if user.user_type == 0:  # SuperAdmin
+            queryset = CourtBooking.objects.select_related('user', 'court__location_id')
+        elif user.user_type == 1:  # Admin
+            assigned_locations = user.locations.all()
+            queryset = CourtBooking.objects.filter(
+                court__location_id__in=assigned_locations
+            ).select_related('user', 'court__location_id')
+        else:
+            # Other user types (Coach, Player, etc.) see nothing or their own (optional)
+            queryset = CourtBooking.objects.none()
+
+        # Optional search by user info
+        search = request.query_params.get('search', '')
+        if search:
+            queryset = queryset.filter(
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__phone__icontains=search)
+            )
+
+        paginator = LargeResultsSetPagination()
+        paginated_qs = paginator.paginate_queryset(queryset, request)
+        serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
         return paginator.get_paginated_response(serializer.data)
