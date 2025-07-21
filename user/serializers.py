@@ -313,17 +313,19 @@ class CourtBookingSerializer(serializers.ModelSerializer):
        
    
 
-    # def get_amount(self, obj):
-    #     try:
-    #         return float(obj.total_price or 0)
-    #     except (ValueError, TypeError):
-    #         return 0.0
-        
     def get_amount(self, obj):
         try:
-            return Decimal(obj.total_price).quantize(Decimal("0.00")) if obj.total_price is not None else Decimal("0.00")
-        except:
-            return Decimal("0.00")
+            new_obj = obj.total_price
+            print("======================",new_obj)
+            return float(obj.total_price or 0)
+        except (ValueError, TypeError):
+            return 0.0
+        
+    # def get_amount(self, obj):
+    #     try:
+    #         return Decimal(obj.total_price).quantize(Decimal("0.00")) if obj.total_price is not None else Decimal("0.00")
+    #     except:
+    #         return Decimal("0.00")
 
 
     def get_tax(self, obj):
