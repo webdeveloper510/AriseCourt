@@ -11,7 +11,7 @@ from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from .mail import MailUtils
 from django.contrib.auth.hashers import make_password
 from datetime import datetime, timedelta
-from decimal import Decimal, ROUND_DOWN, InvalidOperation
+from decimal import Decimal, ROUND_DOWN, InvalidOperation,ROUND_HALF_UP
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -313,12 +313,18 @@ class CourtBookingSerializer(serializers.ModelSerializer):
        
    
 
+    # def get_amount(self, obj):
+    #     try:
+    #         return float(obj.total_price or 0)
+    #     except (ValueError, TypeError):
+    #         return 0.0
+        
     def get_amount(self, obj):
         try:
-            return float(obj.total_price or 0)
+            amount = Decimal(str(obj.total_price or 0))
+            return float(amount.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP))
         except (ValueError, TypeError):
-            return 0.0
-        
+            return 0.00 
 
     def get_tax(self, obj):
         try:
@@ -335,15 +341,6 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         parts = [location.address_1, location.address_2, location.address_3, location.address_4]
         return ", ".join([p for p in parts if p])     
 
-    # def get_tax(self, obj):
-    #     try:
-    #         base_price = float(obj.total_price or 0)
-    #         tax_percent = float(obj.court.tax or 0)
-    #         tax_amount = base_price * (tax_percent / 100)
-    #         return tax_amount
-    #     except (ValueError, TypeError, AttributeError):
-    #         return 0.0
-        
 
     def get_cc_fees(self, obj):
         try:
@@ -353,14 +350,6 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         except:
             return 0.00    
 
-    # def get_cc_fees(self, obj):
-    #     try:
-    #         base_price = float(obj.total_price or 0)
-    #         cc_fees_percent = float(obj.court.cc_fees or 0)
-    #         cc_fee_amount = base_price * (cc_fees_percent / 100)
-    #         return cc_fee_amount
-    #     except (ValueError, TypeError, AttributeError):
-    #         return 0.0
 
     def get_on_amount(self, obj):
         try:
@@ -373,9 +362,6 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             return final_amount  # Full precision
         except (ValueError, TypeError, AttributeError):
             return 0.0
-
-    # def get_summary(self, obj):
-    #     return self.get_on_amount(obj)
 
 
     def get_summary(self, obj):
