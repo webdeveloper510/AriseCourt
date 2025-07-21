@@ -321,10 +321,10 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         
     def get_amount(self, obj):
         try:
-            amount = Decimal(str(obj.total_price or 0))
-            return float(amount.quantize(Decimal("0.00"), rounding=ROUND_HALF_UP))
-        except (ValueError, TypeError):
-            return 0.00 
+            return Decimal(obj.total_price).quantize(Decimal("0.00")) if obj.total_price is not None else Decimal("0.00")
+        except:
+            return Decimal("0.00")
+
 
     def get_tax(self, obj):
         try:
