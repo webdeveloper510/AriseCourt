@@ -224,14 +224,24 @@ class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = '__all__'
-        
+
+
 
     def get_courts(self, obj):
-        courts = Court.objects.filter(location_id=obj.id)
+        # Only include courts where availability=True
+        courts = Court.objects.filter(location_id=obj.id, availability=True)
         data = CourtSerializer(courts, many=True).data
         for court in data:
             court['court_id'] = court.pop('id')  # Rename 'id' to 'court_id'
-        return data
+        return data    
+        
+
+    # def get_courts(self, obj):
+    #     courts = Court.objects.filter(location_id=obj.id)
+    #     data = CourtSerializer(courts, many=True).data
+    #     for court in data:
+    #         court['court_id'] = court.pop('id')  # Rename 'id' to 'court_id'
+    #     return data
 
 
 
