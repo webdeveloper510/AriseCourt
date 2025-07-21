@@ -1920,104 +1920,6 @@ class UserBasicDataView(APIView):
 
 
 
-
-# class BookingListView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         user = request.user
-#         location_address = request.query_params.get('location')
-#         search = request.query_params.get('search', '')
-
-#         # Base queryset depending on user type
-#         if user.user_type == 0:  # SuperAdmin
-#             queryset = CourtBooking.objects.select_related('user', 'court__location_id')
-#         elif user.user_type == 1:  # Admin
-#             assigned_locations = user.locations.all()
-#             queryset = CourtBooking.objects.filter(
-#                 court__location_id__in=assigned_locations
-#             ).select_related('user', 'court__location_id')
-#         else:
-#             queryset = CourtBooking.objects.none()
-
-#         # Annotate address-only field (no city/state/country)
-#         bookings = bookings.annotate(
-#             full_address=Concat(
-#                 'court__location_id__address_1', Value(' '),
-#                 'court__location_id__address_2', Value(' '),
-#                 'court__location_id__address_3', Value(' '),
-#                 'court__location_id__address_4', output_field=CharField()
-#             )
-#         )
-
-        
-#         bookings = bookings.annotate(
-#             location_address=Concat(
-#                 'court__location_id__address_1', Value(' '),
-#                 'court__location_id__address_2', Value(' '),
-#                 'court__location_id__address_3', Value(' '),
-#                 'court__location_id__address_4',
-#                 output_field=CharField()
-#             )
-#         )
-
-#         if location_address:
-#             bookings = bookings.filter(
-#                 location_address__icontains=location_address.strip()
-#             )
-
-#         # Optional user search
-#         if search:
-#             queryset = queryset.filter(
-#                 Q(user__first_name__icontains=search) |
-#                 Q(user__last_name__icontains=search) |
-#                 Q(user__email__icontains=search) |
-#                 Q(user__phone__icontains=search)
-#             )
-
-#         # Paginate and respond
-#         paginator = LargeResultsSetPagination()
-#         paginated_qs = paginator.paginate_queryset(queryset, request)
-#         serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
-#         return paginator.get_paginated_response(serializer.data)
-
-
-
-
-# class BookingListView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def get(self, request):
-#         user = request.user
-#         search = request.query_params.get('search', '')
-
-#         # Base queryset depending on user type
-#         if user.user_type == 0:  # SuperAdmin
-#             bookings = CourtBooking.objects.select_related('user', 'court__location_id')
-#         elif user.user_type == 1:  # Admin
-#             assigned_locations = user.locations.all()
-#             bookings = CourtBooking.objects.filter(
-#                 Q(court__location_id__in=assigned_locations) | Q(user=user)
-#             ).select_related('user', 'court__location_id')
-#         else:
-#             bookings = CourtBooking.objects.none()  # Fix here
-
-#         # ✅ Filter by user search
-#         if search:
-#             bookings = bookings.filter(
-#                 Q(user__first_name__icontains=search) |
-#                 Q(user__last_name__icontains=search) |
-#                 Q(user__email__icontains=search) |
-#                 Q(user__phone__icontains=search)
-#             )
-
-#         # ✅ Paginate and return
-#         paginator = LargeResultsSetPagination()
-#         paginated_qs = paginator.paginate_queryset(bookings, request)
-#         serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
-#         return paginator.get_paginated_response(serializer.data)
-
-
 class BookingListView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2045,52 +1947,45 @@ class BookingListView(APIView):
                 Q(user__email__icontains=search) |
                 Q(user__phone__icontains=search)
             )
-
-        # 3. Check for Excel export
-        if export == 'excel':
-            return self.download_excel(bookings)
-
         # 4. Paginate and return JSON response
         paginator = LargeResultsSetPagination()
         paginated_qs = paginator.paginate_queryset(bookings, request)
         serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
         return paginator.get_paginated_response(serializer.data)
 
-    def download_excel(self, bookings):
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Bookings"
-
-        # Header row
-        ws.append([
-            "Sr No", "Booking Date", "Start Time", "End Time", "Duration", "Total Price",
-            "Court Number", "Court Location", "User Name", "User Email", "User Phone", "Booking Status"
-        ])
-
-        for i, booking in enumerate(bookings, 1):
-            ws.append([
-                i,
-                booking.booking_date.strftime("%Y-%m-%d") if booking.booking_date else "",
-                booking.start_time.strftime("%I:%M %p") if booking.start_time else "",
-                booking.end_time.strftime("%I:%M %p") if booking.end_time else "",
-                booking.duration_time or "",
-                booking.total_price or "",
-                booking.court.court_number if booking.court else "",
-                booking.court.location_id.name if booking.court and booking.court.location_id else "",
-                f"{booking.user.first_name} {booking.user.last_name}" if booking.user else "",
-                booking.user.email if booking.user else "",
-                booking.user.phone if booking.user else "",
-                booking.status
-            ])
-
-        stream = BytesIO()
-        wb.save(stream)
-        stream.seek(0)
-
-        response = HttpResponse(
-            stream,
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
-        response['Content-Disposition'] = 'attachment; filename=bookings.xlsx'
-        return response
     
+    
+
+
+class DownloadCSVView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        search = request.query_params.get('search', '')
+        export = request.query_params.get('export', '')
+
+        # 1. Get bookings based on user type
+        if user.user_type == 0:  # SuperAdmin
+            bookings = CourtBooking.objects.select_related('user', 'court__location_id')
+        elif user.user_type == 1:  # Admin
+            assigned_locations = user.locations.all()
+            bookings = CourtBooking.objects.filter(
+                Q(court__location_id__in=assigned_locations) | Q(user=user)
+            ).select_related('user', 'court__location_id')
+        else:
+            bookings = CourtBooking.objects.none()
+
+        # 2. Apply search filter
+        if search:
+            bookings = bookings.filter(
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__phone__icontains=search)
+            )
+        # 4. Paginate and return JSON response
+        # paginator = LargeResultsSetPagination()
+        # paginated_qs = paginator.paginate_queryset(bookings, request)
+        serializer = CourtBookingWithUserSerializer(bookings, many=True)
+        return Response(serializer.data)
