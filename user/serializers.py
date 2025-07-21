@@ -289,7 +289,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     amount = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     cc_fees = serializers.SerializerMethodField()
-    # on_amount = serializers.SerializerMethodField()
+    address = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField() 
 
     class Meta:
@@ -298,7 +298,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             'booking_id', 'user', 'court', 'court_id', 'booking_date','book_for_four_weeks','total_price',
             'start_time', 'end_time', 'duration_time', 'status',
             'created_at', 'updated_at','on_amount','summary','amount',
-         'tax', 'cc_fees'
+         'tax', 'cc_fees','address'
         ]
        
    
@@ -316,7 +316,14 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             tax_percent = float(obj.court.tax or 0)
             return round(base_price * tax_percent / 100, 2)
         except:
-            return 0.00    
+            return 0.00   
+
+
+    def get_address(self, obj):
+        location = obj.court.location_id
+        # Combine all address parts, remove empty ones, and join with commas
+        parts = [location.address_1, location.address_2, location.address_3, location.address_4]
+        return ", ".join([p for p in parts if p])     
 
     # def get_tax(self, obj):
     #     try:
