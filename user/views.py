@@ -670,6 +670,15 @@ class AdminViewSet(viewsets.ModelViewSet):
         instance.refresh_from_db()
         response_data = self.get_serializer(instance).data
 
+        # ✅ Add flat location_id and country fields from the first location
+        first_location = instance.locations.first()
+        if first_location:
+            response_data['location_id'] = first_location.id
+            response_data['country'] = first_location.country
+        else:
+            response_data['location_id'] = None
+            response_data['country'] = None
+
         return Response({
             "message": "Admin updated successfully.",
             "status_code": status.HTTP_200_OK,
