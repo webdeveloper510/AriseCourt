@@ -1038,6 +1038,7 @@ class ProfileView(APIView):
 
 
 
+
 # class CourtAvailabilityView(APIView):
 
 #     def post(self, request, *args, **kwargs):
@@ -1065,7 +1066,7 @@ class ProfileView(APIView):
 #         result = []
 
 #         for court in courts:
-#             # Base query
+#             # ✅ FIXED: Fetch bookings from ALL users, not just current user
 #             bookings = CourtBooking.objects.filter(
 #                 court=court,
 #                 status__in=['pending', 'confirmed']
@@ -1096,6 +1097,8 @@ class ProfileView(APIView):
 #             if start_time_obj and end_time_obj:
 #                 for booking in combined_bookings:
 #                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
+#                         # Optional debug
+#                         # print(f"⛔ Conflict with booking by user {booking.user_id}: {booking.start_time}-{booking.end_time}")
 #                         is_booked = True
 #                         break
 #             else:
@@ -1115,8 +1118,6 @@ class ProfileView(APIView):
 #             "date": booking_date,
 #             "courts": result
 #         }, status=status.HTTP_200_OK)
-
-
 
 class CourtAvailabilityView(APIView):
 
@@ -1145,17 +1146,24 @@ class CourtAvailabilityView(APIView):
         result = []
 
         for court in courts:
-            # ✅ FIXED: Fetch bookings from ALL users, not just current user
+            if start_time_obj and end_time_obj:
+                # ❌ Skip court if it has no closed time set
+                if not court.start_time or not court.end_time:
+                    continue
+
+                # ❌ If requested time overlaps with court closed time, skip
+                if start_time_obj < court.end_time and end_time_obj > court.start_time:
+                    continue
+
+            # ✅ Fetch bookings for the court
             bookings = CourtBooking.objects.filter(
                 court=court,
                 status__in=['pending', 'confirmed']
             )
 
-            # Filter 1: Normal same-day bookings
             same_day_bookings = bookings.filter(booking_date=date_obj)
 
-            # Filter 2: Repeating bookings (booked for 6 months)
-            weekday = date_obj.weekday()  # Monday=0 ... Sunday=6
+            weekday = date_obj.weekday()
             six_months_back = date_obj - timedelta(weeks=26)
 
             repeating_bookings = bookings.filter(
@@ -1163,21 +1171,16 @@ class CourtAvailabilityView(APIView):
                 booking_date__lte=date_obj,
                 booking_date__gte=six_months_back
             )
-
             repeating_bookings = [
-                b for b in repeating_bookings
-                if b.booking_date.weekday() == weekday
+                b for b in repeating_bookings if b.booking_date.weekday() == weekday
             ]
 
-            # Combine all bookings to check time conflict
             combined_bookings = list(same_day_bookings) + list(repeating_bookings)
 
             is_booked = False
             if start_time_obj and end_time_obj:
                 for booking in combined_bookings:
                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
-                        # Optional debug
-                        # print(f"⛔ Conflict with booking by user {booking.user_id}: {booking.start_time}-{booking.end_time}")
                         is_booked = True
                         break
             else:
@@ -1186,9 +1189,9 @@ class CourtAvailabilityView(APIView):
             result.append({
                 "court_id": court.id,
                 "court_number": court.court_number,
-                "court_fee_hrs": court.court_fee_hrs,  
-                "start_time": court.start_time, 
-                "end_time": court.end_time, 
+                "court_fee_hrs": court.court_fee_hrs,
+                "start_time": court.start_time,  # closed start
+                "end_time": court.end_time,      # closed end
                 "is_booked": is_booked
             })
 
@@ -1780,32 +1783,15 @@ class AdminCourtBookingListView(APIView):
             user__locations__id__in=assigned_location_ids
         ).select_related('court', 'user').distinct()
 
-        # Step 4: Time-based filter
-        status_param = request.query_params.get('status')  # 'past' or 'upcoming'
-        now = timezone.now()
-        today = now.date()
-        time_now = now.time()
 
-        if status_param == 'past':
-            bookings = bookings.filter(
-                Q(booking_date__lt=today) |
-                Q(booking_date=today, end_time__lt=time_now)
-            )
-        elif status_param == 'upcoming':
-            bookings = bookings.filter(
-                Q(booking_date__gt=today) |
-                Q(booking_date=today, end_time__gte=time_now)
-            )
+        # past and upcoming booking filter
+        today = date.today()
+        booking_type = request.query_params.get('type')  # 'past' or 'upcoming'
 
-        # Step 4.5: Optional date range filter
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-
-        if start_date and end_date:
-            start = parse_date(start_date)
-            end = parse_date(end_date)
-            if start and end:
-                bookings = bookings.filter(booking_date__range=(start, end))
+        if booking_type == 'past':
+            bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
+        elif booking_type == 'upcoming':
+            bookings = bookings.filter(booking_date__gte=today).order_by('booking_date')
 
         # Step 5: Optional search filter
         search = request.query_params.get('search')
@@ -1927,6 +1913,8 @@ class BookingListView(APIView):
         user = request.user
         search = request.query_params.get('search', '')
         export = request.query_params.get('export', '')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
 
         # 1. Get bookings based on user type
         if user.user_type == 0:  # SuperAdmin
@@ -1947,6 +1935,23 @@ class BookingListView(APIView):
                 Q(user__email__icontains=search) |
                 Q(user__phone__icontains=search)
             )
+
+
+        # 3. Apply date filter (format: YYYY-MM-DD)
+        if start_date:
+            try:
+                start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+                bookings = bookings.filter(booking_date__gte=start_date_obj)
+            except ValueError:
+                pass  # Ignore if invalid
+
+        if end_date:
+            try:
+                end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+                bookings = bookings.filter(booking_date__lte=end_date_obj)
+            except ValueError:
+                pass  # Ignore if invalid
+
         # 4. Paginate and return JSON response
         paginator = LargeResultsSetPagination()
         paginated_qs = paginator.paginate_queryset(bookings, request)

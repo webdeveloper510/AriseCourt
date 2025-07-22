@@ -316,7 +316,6 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     def get_amount(self, obj):
         try:
             new_obj = obj.total_price
-            print("======================",new_obj)
             return float(obj.total_price or 0)
         except (ValueError, TypeError):
             return 0.0
