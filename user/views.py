@@ -586,6 +586,22 @@ class AdminViewSet(viewsets.ModelViewSet):
             "data": response_data
         }, status=status.HTTP_201_CREATED)
     
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        data = serializer.data
+
+        # ✅ Add flat location_id and country fields
+        first_location = instance.locations.first()
+        if first_location:
+            data['location_id'] = first_location.id
+            data['country'] = first_location.country
+        else:
+            data['location_id'] = None
+            data['country'] = None
+
+        return Response(data)
+    
     
 
     def update(self, request, *args, **kwargs):
