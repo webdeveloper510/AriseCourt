@@ -127,6 +127,7 @@ class LocationDataSerializer(serializers.ModelSerializer):
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
     location_id = serializers.IntegerField(write_only=True)
+    country = serializers.CharField(write_only=True, required=False)
     locations = LocationDataSerializer(many=True, read_only=True) 
 
     class Meta:
@@ -134,7 +135,7 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone',
             'location_id', 'locations', 'user_type', 'password',
-            'created_at', 'updated_at', 'access_flag'
+            'created_at', 'updated_at', 'access_flag','country'
         ]
         extra_kwargs = {
             'password': {'write_only': True},
@@ -320,20 +321,15 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         except (ValueError, TypeError):
             return 0.0
         
-    # def get_amount(self, obj):
+
+
+    # def get_tax(self, obj):
     #     try:
-    #         return Decimal(obj.total_price).quantize(Decimal("0.00")) if obj.total_price is not None else Decimal("0.00")
+    #         base_price = float(obj.total_price or 0)
+    #         tax_percent = float(obj.court.tax or 0)
+    #         return round(base_price * tax_percent / 100, 2)
     #     except:
-    #         return Decimal("0.00")
-
-
-    def get_tax(self, obj):
-        try:
-            base_price = float(obj.total_price or 0)
-            tax_percent = float(obj.court.tax or 0)
-            return round(base_price * tax_percent / 100, 2)
-        except:
-            return 0.00   
+    #         return "0.00 (0%)"
 
 
     def get_address(self, obj):
@@ -343,13 +339,13 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         return ", ".join([p for p in parts if p])     
 
 
-    def get_cc_fees(self, obj):
-        try:
-            base_price = float(obj.total_price or 0)
-            cc_percent = float(obj.court.cc_fees or 0)
-            return round(base_price * cc_percent / 100, 2)
-        except:
-            return 0.00    
+    # def get_cc_fees(self, obj):
+    #     try:
+    #         base_price = float(obj.total_price or 0)
+    #         cc_percent = float(obj.court.cc_fees or 0)
+    #         return round(base_price * cc_percent / 100, 2)
+    #     except:
+    #         return "0.00 (0%)"   
 
 
     def get_on_amount(self, obj):
@@ -370,6 +366,25 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             return round(self.get_on_amount(obj), 2)
         except:
             return 0.00
+        
+    def get_cc_fees(self, obj):
+        try:
+            base_price = float(obj.total_price or 0)
+            cc_percent = float(obj.court.cc_fees or 0)
+            cc_amount = round(base_price * cc_percent / 100, 2)
+            return f"{cc_amount:.2f} ({cc_percent}%)"
+        except:
+            return "0.00 (0%)"
+
+
+    def get_tax(self, obj):
+        try:
+            base_price = float(obj.total_price or 0)
+            tax_percent = float(obj.court.tax or 0)
+            tax_amount = round(base_price * tax_percent / 100, 2)
+            return f"{tax_amount:.2f} ({tax_percent}%)"
+        except:
+            return "0.00 (0%)"
 
 
     

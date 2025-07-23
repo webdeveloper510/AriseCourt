@@ -611,6 +611,7 @@ class AdminViewSet(viewsets.ModelViewSet):
         location_id = request.data.get("location_id")
         access_flag = request.data.get("access_flag")
         password = request.data.get("password")
+        country      = request.data.get("country")
 
         location_obj = None
 
@@ -665,6 +666,12 @@ class AdminViewSet(viewsets.ModelViewSet):
                 user=instance,
                 defaults={"access_flag": str(access_flag)}
             )
+
+         # ✅ Update country if provided
+        target_location = location_obj or instance.locations.first()
+        if country and target_location:
+            target_location.country = country
+            target_location.save()
 
         # ✅ Refresh and return updated data
         instance.refresh_from_db()
