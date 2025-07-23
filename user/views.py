@@ -1153,7 +1153,7 @@ class ProfileView(APIView):
 
 class CourtAvailabilityView(APIView):
 
-    def post(self, request, *args, **kwargs):
+     def post(self, request, *args, **kwargs):
         location_id = request.data.get('location_id')
         booking_date = request.data.get('date')
         start_time = request.data.get('start_time')
@@ -1178,21 +1178,19 @@ class CourtAvailabilityView(APIView):
         result = []
 
         for court in courts:
+            is_booked = False
+
+            # ✅ Condition 1: Requested time falls within CLOSED court hours
             if start_time_obj and end_time_obj:
-                # ❌ Skip court if it has no closed time set
-                if not court.start_time or not court.end_time:
-                    continue
+                if court.start_time and court.end_time:
+                    if start_time_obj >= court.start_time and end_time_obj <= court.end_time:
+                        is_booked = True
 
-                # ❌ If requested time overlaps with court closed time, skip
-                if start_time_obj < court.end_time and end_time_obj > court.start_time:
-                    continue
-
-            # ✅ Fetch bookings for the court
+            # ✅ Condition 2: Check for regular and repeating bookings
             bookings = CourtBooking.objects.filter(
                 court=court,
                 status__in=['pending', 'confirmed']
             )
-
             same_day_bookings = bookings.filter(booking_date=date_obj)
 
             weekday = date_obj.weekday()
@@ -1209,13 +1207,12 @@ class CourtAvailabilityView(APIView):
 
             combined_bookings = list(same_day_bookings) + list(repeating_bookings)
 
-            is_booked = False
-            if start_time_obj and end_time_obj:
+            if start_time_obj and end_time_obj and not is_booked:
                 for booking in combined_bookings:
                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
                         is_booked = True
                         break
-            else:
+            elif not start_time_obj or not end_time_obj:
                 is_booked = bool(combined_bookings)
 
             result.append({
@@ -1232,6 +1229,83 @@ class CourtAvailabilityView(APIView):
             "date": booking_date,
             "courts": result
         }, status=status.HTTP_200_OK)
+
+    # def post(self, request, *args, **kwargs):
+    #     location_id = request.data.get('location_id')
+    #     booking_date = request.data.get('date')
+    #     start_time = request.data.get('start_time')
+    #     end_time = request.data.get('end_time')
+
+    #     if not (location_id and booking_date):
+    #         return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     # Parse date and time
+    #     try:
+    #         date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
+    #         if start_time and end_time:
+    #             start_time_obj = time.fromisoformat(start_time)
+    #             end_time_obj = time.fromisoformat(end_time)
+    #         else:
+    #             start_time_obj = None
+    #             end_time_obj = None
+    #     except ValueError:
+    #         return Response({"error": "Invalid date or time format."}, status=status.HTTP_400_BAD_REQUEST)
+
+    #     courts = Court.objects.filter(location_id=location_id)
+    #     result = []
+
+    #     for court in courts:
+    #     #     if start_time_obj and end_time_obj:
+    #     #         # ❌ Skip court if it has no closed time set
+    #     #         if not court.start_time or not court.end_time:
+    #     #             continue
+
+    #     #         # ❌ If requested time overlaps with court closed time, skip
+    #     #         if start_time_obj < court.end_time and end_time_obj > court.start_time:
+    #     #             continue
+
+    #         # ✅ Fetch bookings for the court
+    #         bookings = CourtBooking.objects.filter(
+    #             court=court,
+    #             status__in=['pending', 'confirmed']
+    #         )
+    #         same_day_bookings = bookings.filter(booking_date=date_obj)
+
+    #         weekday = date_obj.weekday()
+    #         six_months_back = date_obj - timedelta(weeks=26)
+
+    #         repeating_bookings = bookings.filter(
+    #             book_for_four_weeks=True,
+    #             booking_date__lte=date_obj,
+    #             booking_date__gte=six_months_back
+    #         )
+    #         repeating_bookings = [
+    #             b for b in repeating_bookings if b.booking_date.weekday() == weekday
+    #         ]
+    #         combined_bookings = list(same_day_bookings) + list(repeating_bookings)
+
+    #         is_booked = False
+    #         if start_time_obj and end_time_obj:
+    #             for booking in combined_bookings:
+    #                 if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
+    #                     is_booked = True
+    #                     break
+    #         else:
+    #             is_booked = bool(combined_bookings)
+    #         result.append({
+    #             "court_id": court.id,
+    #             "court_number": court.court_number,
+    #             "court_fee_hrs": court.court_fee_hrs,
+    #             "start_time": court.start_time,  # closed start
+    #             "end_time": court.end_time,      # closed end
+    #             "is_booked": is_booked
+    #             })
+
+    #     return Response({
+    #         "location_id": location_id,
+    #         "date": booking_date,
+    #         "courts": result
+    #     }, status=status.HTTP_200_OK)
 
     
     
