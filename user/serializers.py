@@ -441,6 +441,11 @@ class CourtBookingDataSerializer(serializers.ModelSerializer):
             return float(obj.court.court_fee_hrs)
         except (AttributeError, ValueError, TypeError):
             return 0.0
+        
+
+
+
+
 
 
 class UsersDataSerializer(serializers.ModelSerializer):
@@ -465,7 +470,7 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'booking_date', 'start_time', 'end_time', 'duration_time',
             'total_price', 'on_amount', 'book_for_four_weeks', 'status',
-            'created_at', 'updated_at', 'user', 'court'  # Include 'court'
+            'created_at', 'updated_at', 'user', 'court'
         ]
 
     def get_tax(self, obj):
@@ -482,6 +487,10 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
             return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         return Decimal('0.00')
     
+
+
+
+
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):

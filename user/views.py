@@ -1938,12 +1938,16 @@ class UserBasicDataView(APIView):
 
 
 
+from django.db.models import Value as V, CharField
+
 class BookingListView(APIView):
     permission_classes = [IsAuthenticated]
+
 
     def get(self, request):
         user = request.user
         search = request.query_params.get('search', '')
+        location = request.query_params.get('location', '')  # new param for address search
         export = request.query_params.get('export', '')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
@@ -1959,7 +1963,7 @@ class BookingListView(APIView):
         else:
             bookings = CourtBooking.objects.none()
 
-        # 2. Apply search filter
+        # 2. Apply search filter for name, email, phone
         if search:
             bookings = bookings.filter(
                 Q(user__first_name__icontains=search) |
@@ -1968,27 +1972,97 @@ class BookingListView(APIView):
                 Q(user__phone__icontains=search)
             )
 
+        # 3. Apply location (address) filter using new `location` key
+        if location:
+            bookings = bookings.annotate(
+                full_address=Concat(
+                    'court__location_id__address_1', V(' '),
+                    'court__location_id__address_2', V(' '),
+                    'court__location_id__address_3', V(' '),
+                    'court__location_id__address_4',
+                    output_field=CharField()
+                )
+            ).filter(full_address__icontains=location)
 
-        # 3. Apply date filter (format: YYYY-MM-DD)
+        # 4. Apply date filter
         if start_date:
             try:
                 start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
                 bookings = bookings.filter(booking_date__gte=start_date_obj)
             except ValueError:
-                pass  # Ignore if invalid
+                pass
 
         if end_date:
             try:
                 end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
                 bookings = bookings.filter(booking_date__lte=end_date_obj)
             except ValueError:
-                pass  # Ignore if invalid
+                pass
 
-        # 4. Paginate and return JSON response
+        # 5. Paginate and return JSON response
         paginator = LargeResultsSetPagination()
         paginated_qs = paginator.paginate_queryset(bookings, request)
         serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+
+
+    # def get(self, request):
+    #     user = request.user
+    #     search = request.query_params.get('search', '')
+    #     export = request.query_params.get('export', '')
+    #     start_date = request.query_params.get('start_date')
+    #     end_date = request.query_params.get('end_date')
+
+    #     # 1. Get bookings based on user type
+    #     if user.user_type == 0:  # SuperAdmin
+    #         bookings = CourtBooking.objects.select_related('user', 'court__location_id')
+    #     elif user.user_type == 1:  # Admin
+    #         assigned_locations = user.locations.all()
+    #         bookings = CourtBooking.objects.filter(
+    #             Q(court__location_id__in=assigned_locations) | Q(user=user)
+    #         ).select_related('user', 'court__location_id')
+    #     else:
+    #         bookings = CourtBooking.objects.none()
+
+    #     # 2. Apply search filter
+    #     if search:
+    #         bookings = bookings.annotate(
+    #             full_address=Concat(
+    #                 'court__location_id__address_1', V(' '),
+    #                 'court__location_id__address_2', V(' '),
+    #                 'court__location_id__address_3', V(' '),
+    #                 'court__location_id__address_4',
+    #                 output_field=CharField()
+    #             )
+    #         ).filter(
+    #             Q(user__first_name__icontains=search) |
+    #             Q(user__last_name__icontains=search) |
+    #             Q(user__email__icontains=search) |
+    #             Q(user__phone__icontains=search) |
+    #             Q(full_address__icontains=search)
+    #         )
+    #     # 3. Apply date filter (format: YYYY-MM-DD)
+    #     if start_date:
+    #         try:
+    #             start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
+    #             bookings = bookings.filter(booking_date__gte=start_date_obj)
+    #         except ValueError:
+    #             pass  # Ignore if invalid
+
+    #     if end_date:
+    #         try:
+    #             end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
+    #             bookings = bookings.filter(booking_date__lte=end_date_obj)
+    #         except ValueError:
+    #             pass  # Ignore if invalid
+
+    #     # 4. Paginate and return JSON response
+    #     paginator = LargeResultsSetPagination()
+    #     paginated_qs = paginator.paginate_queryset(bookings, request)
+    #     serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
+    #     return paginator.get_paginated_response(serializer.data)
 
     
     
