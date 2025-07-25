@@ -512,7 +512,7 @@ class CourtViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_200_OK)
     
 
-##########################################    ADMIN   ###########################################################################################################################
+###############################################   ADMIN   ###############################################
 
 class AdminViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -611,7 +611,7 @@ class AdminViewSet(viewsets.ModelViewSet):
         location_id = request.data.get("location_id")
         access_flag = request.data.get("access_flag")
         password = request.data.get("password")
-        country      = request.data.get("country")
+        country = request.data.get("country")
 
         location_obj = None
 
@@ -1183,7 +1183,7 @@ class CourtAvailabilityView(APIView):
             # ✅ Condition 1: Requested time falls within CLOSED court hours
             if start_time_obj and end_time_obj:
                 if court.start_time and court.end_time:
-                    if start_time_obj >= court.start_time and end_time_obj <= court.end_time:
+                    if start_time_obj < court.end_time and end_time_obj > court.start_time:
                         is_booked = True
 
             # ✅ Condition 2: Check for regular and repeating bookings

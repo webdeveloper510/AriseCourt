@@ -550,25 +550,7 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CourtBooking
-        fields = [
-            'id',
-            'booking_date',
-            'start_time',
-            'end_time',
-            'duration_time',
-            'total_price',
-            'status',
-            'court_number',
-            'user_phone',
-            'user_first_name',
-            'user_last_name',
-            'user_email',
-            'user_type',
-            'location_name',
-            'location_address',
-            'on_amount',
-            'tax',
-            'cc_fees'
+        fields = ['id','booking_date','start_time','end_time','duration_time','total_price','status', 'court_number','user_phone','user_first_name','user_last_name','user_email','user_type',        'location_name','location_address','on_amount','tax','cc_fees'
         ]
 
     def get_location_address(self, obj):
