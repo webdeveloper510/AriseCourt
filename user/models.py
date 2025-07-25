@@ -39,6 +39,8 @@ class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     is_verified = models.BooleanField(default=False)
     verified_otp = models.CharField(max_length=6, null=True, blank=True)
     locations = models.ManyToManyField('Location', related_name='assigned_superadmins', blank=True)
+    EMAIL_HOST_USER = models.CharField(max_length=225, null=True)
+    EMAIL_HOST_PASSWORD =models.CharField(max_length=225, null=True)
 
     objects = CustomUserManager()
 

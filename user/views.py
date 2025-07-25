@@ -585,24 +585,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_201_CREATED,
             "data": response_data
         }, status=status.HTTP_201_CREATED)
-    
-    def retrieve(self, request, *args, **kwargs):
-        instance = self.get_object()
-        serializer = self.get_serializer(instance)
-        data = serializer.data
-
-        # ✅ Add flat location_id and country fields
-        first_location = instance.locations.first()
-        if first_location:
-            data['location_id'] = first_location.id
-            data['country'] = first_location.country
-        else:
-            data['location_id'] = None
-            data['country'] = None
-
-        return Response(data)
-    
-    
+        
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', True)
@@ -672,19 +655,6 @@ class AdminViewSet(viewsets.ModelViewSet):
         if country and target_location:
             target_location.country = country
             target_location.save()
-
-        # ✅ Refresh and return updated data
-        instance.refresh_from_db()
-        response_data = self.get_serializer(instance).data
-
-        # ✅ Add flat location_id and country fields from the first location
-        first_location = instance.locations.first()
-        if first_location:
-            response_data['location_id'] = first_location.id
-            response_data['country'] = first_location.country
-        else:
-            response_data['location_id'] = None
-            response_data['country'] = None
 
         return Response({
             "message": "Admin updated successfully.",

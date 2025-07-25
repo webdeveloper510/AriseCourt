@@ -493,16 +493,14 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
 
 
 
-
-
 class UpdateProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField (read_only = True)
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'image', 'phone', 'email']
+        fields = ['first_name', 'last_name', 'image', 'phone', 'email','EMAIL_HOST_USER', 'EMAIL_HOST_PASSWORD']
 
     def update(self, instance, validated_data):
-        for field in ['first_name', 'last_name', 'image', 'phone']:
+        for field in ['first_name', 'last_name', 'image', 'phone','EMAIL_HOST_USER','EMAIL_HOST_PASSWORD']:
             if field in validated_data:
                 setattr(instance, field, validated_data[field])
 
