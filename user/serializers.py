@@ -128,13 +128,13 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
     location_id = serializers.IntegerField(write_only=True)
     country = serializers.CharField(write_only=True, required=False)
-    locations = LocationDataSerializer(many=True, read_only=True) 
+    # locations = LocationDataSerializer(many=True, read_only=True) 
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone',
-            'location_id', 'locations', 'user_type', 'password',
+            'user_type', 'password','location_id',
             'created_at', 'updated_at', 'access_flag','country'
         ]
         extra_kwargs = {
@@ -160,23 +160,23 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
         except AdminPermission.DoesNotExist:
             return None
         
-    def update(self, instance, validated_data):
-        location_id = self.context['request'].data.get('location_id')
-        if location_id:
-            try:
-                location_obj = Location.objects.get(id=location_id)
-                # Remove old ones and assign new location
-                instance.locations.set([location_obj])
-                # Activate this location and deactivate others
-                Location.objects.exclude(id=location_obj.id).update(status=False)
-                location_obj.status = True
-                location_obj.save()
-            except Location.DoesNotExist:
-                pass  # Optionally handle the case where the location is not found
+    # def update(self, instance, validated_data):
+    #     location_id = self.context['request'].data.get('location_id')
+    #     if location_id:
+    #         try:
+    #             location_obj = Location.objects.get(id=location_id)
+    #             # Remove old ones and assign new location
+    #             instance.locations.set([location_obj])
+    #             # Activate this location and deactivate others
+    #             Location.objects.exclude(id=location_obj.id).update(status=False)
+    #             location_obj.status = True
+    #             location_obj.save()
+    #         except Location.DoesNotExist:
+    #             pass  # Optionally handle the case where the location is not found
 
-        validated_data.pop('locations', None)
-        validated_data.pop('location_id', None)
-        return super().update(instance, validated_data)
+    #     validated_data.pop('locations', None)
+    #     validated_data.pop('location_id', None)
+    #     return super().update(instance, validated_data)
 
     
 
@@ -256,7 +256,7 @@ class CourtSerializer(serializers.ModelSerializer):
 class UserDataSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'phone', 'user_type']
+        fields = ['first_name', 'last_name', 'email', 'phone', 'user_type','country']
 
 
 

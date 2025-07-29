@@ -659,7 +659,7 @@ class AdminViewSet(viewsets.ModelViewSet):
         return Response({
             "message": "Admin updated successfully.",
             "status_code": status.HTTP_200_OK,
-            "data": response_data
+            "data": serializer.data
         }, status=status.HTTP_200_OK)
 
 
@@ -709,7 +709,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 'court__location_id__address_1', Value(' '),
                 'court__location_id__address_2', Value(' '),
                 'court__location_id__address_3', Value(' '),
-                'court__location_id__address_4',
+                'court__location_id__address_4', Value(' '),
+                'court__location_id__name',
                 output_field=CharField()
             )
         )
@@ -804,9 +805,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             # data['on_amount'] = str(total)  # ✅ Save to DB
             data['on_amount'] = "{:.2f}".format(total)  # force 2 decimal places
             data['total'] = total
-
-
-
         except:
             return Response({"message": "Failed to calculate on_amount", 'code': '400'}, status=status.HTTP_200_OK)
 
@@ -853,14 +851,10 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         response_serializer = self.get_serializer(created_bookings, many=True)
         return Response({
-            "message": "Booking(s) created successfully.",
+            "message": "Bookings created successfully.",
             "status_code": status.HTTP_201_CREATED,
             "data": response_serializer.data
         }, status=status.HTTP_201_CREATED)
-
-
-
-
 
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
@@ -895,8 +889,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             {"message": "Court booking deleted successfully.", "status_code": status.HTTP_200_OK},
             status=status.HTTP_200_OK
         )
-
-
     
     
     
@@ -943,25 +935,6 @@ class ContactUsViewSet(viewsets.ModelViewSet):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
     
-
-
-# class StatsAPIView(APIView):
-#     def get(self, request):
-#         allowed_roles = [2, 3, 4]
-#         total_users = User.objects.filter(user_type__in=allowed_roles).count()
-#         total_bookings = CourtBooking.objects.count()
-#         total_courts = Court.objects.count()
-
-#         # ✅ Sum all successful payments
-#         total_profit = Payment.objects.filter(payment_status='successful') \
-#             .aggregate(total=Sum('amount'))['total'] or 0
-
-#         return Response({
-#             'total_users': total_users,
-#             'total_bookings': total_bookings,
-#             'total_courts': total_courts,
-#             'total_profit': f"${total_profit:.2f}"
-#         })
 
 class StatsAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -2013,7 +1986,8 @@ class BookingListView(APIView):
                 Q(user__first_name__icontains=search) |
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search) |
-                Q(user__phone__icontains=search)
+                Q(user__phone__icontains=search) |
+                Q(court__location_id__name__icontains=search)
             )
 
         # 3. Apply location (address) filter using new `location` key
@@ -2023,7 +1997,8 @@ class BookingListView(APIView):
                     'court__location_id__address_1', V(' '),
                     'court__location_id__address_2', V(' '),
                     'court__location_id__address_3', V(' '),
-                    'court__location_id__address_4',
+                    'court__location_id__address_4', V(' '),
+                    'court__location_id__name',
                     output_field=CharField()
                 )
             ).filter(full_address__icontains=location)
