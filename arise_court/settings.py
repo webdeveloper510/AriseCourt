@@ -16,7 +16,7 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 DOMAIN_URL = config('DOMAIN_URL')
 
-ALLOWED_HOSTS = ['*,http://get1court.com/ ,https://get1court.com/']
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -49,7 +49,8 @@ MIDDLEWARE = [
 CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
+    "https://get1court.com",
+    "http://get1court.com"
 ]
 
 
