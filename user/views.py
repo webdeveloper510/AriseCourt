@@ -869,8 +869,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             "data": serializer.data
         }, status=status.HTTP_200_OK)
 
-    
-    
 
     def destroy(self, request, *args, **kwargs):
         booking = self.get_object()
@@ -1173,85 +1171,6 @@ class CourtAvailabilityView(APIView):
             "courts": result
         }, status=status.HTTP_200_OK)
 
-    # def post(self, request, *args, **kwargs):
-    #     location_id = request.data.get('location_id')
-    #     booking_date = request.data.get('date')
-    #     start_time = request.data.get('start_time')
-    #     end_time = request.data.get('end_time')
-
-    #     if not (location_id and booking_date):
-    #         return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    #     # Parse date and time
-    #     try:
-    #         date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
-    #         if start_time and end_time:
-    #             start_time_obj = time.fromisoformat(start_time)
-    #             end_time_obj = time.fromisoformat(end_time)
-    #         else:
-    #             start_time_obj = None
-    #             end_time_obj = None
-    #     except ValueError:
-    #         return Response({"error": "Invalid date or time format."}, status=status.HTTP_400_BAD_REQUEST)
-
-    #     courts = Court.objects.filter(location_id=location_id)
-    #     result = []
-
-    #     for court in courts:
-    #     #     if start_time_obj and end_time_obj:
-    #     #         # ❌ Skip court if it has no closed time set
-    #     #         if not court.start_time or not court.end_time:
-    #     #             continue
-
-    #     #         # ❌ If requested time overlaps with court closed time, skip
-    #     #         if start_time_obj < court.end_time and end_time_obj > court.start_time:
-    #     #             continue
-
-    #         # ✅ Fetch bookings for the court
-    #         bookings = CourtBooking.objects.filter(
-    #             court=court,
-    #             status__in=['pending', 'confirmed']
-    #         )
-    #         same_day_bookings = bookings.filter(booking_date=date_obj)
-
-    #         weekday = date_obj.weekday()
-    #         six_months_back = date_obj - timedelta(weeks=26)
-
-    #         repeating_bookings = bookings.filter(
-    #             book_for_four_weeks=True,
-    #             booking_date__lte=date_obj,
-    #             booking_date__gte=six_months_back
-    #         )
-    #         repeating_bookings = [
-    #             b for b in repeating_bookings if b.booking_date.weekday() == weekday
-    #         ]
-    #         combined_bookings = list(same_day_bookings) + list(repeating_bookings)
-
-    #         is_booked = False
-    #         if start_time_obj and end_time_obj:
-    #             for booking in combined_bookings:
-    #                 if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
-    #                     is_booked = True
-    #                     break
-    #         else:
-    #             is_booked = bool(combined_bookings)
-    #         result.append({
-    #             "court_id": court.id,
-    #             "court_number": court.court_number,
-    #             "court_fee_hrs": court.court_fee_hrs,
-    #             "start_time": court.start_time,  # closed start
-    #             "end_time": court.end_time,      # closed end
-    #             "is_booked": is_booked
-    #             })
-
-    #     return Response({
-    #         "location_id": location_id,
-    #         "date": booking_date,
-    #         "courts": result
-    #     }, status=status.HTTP_200_OK)
-
-    
-    
 
 
 class CreatePaymentIntentView(APIView):
@@ -1987,7 +1906,8 @@ class BookingListView(APIView):
                 Q(user__last_name__icontains=search) |
                 Q(user__email__icontains=search) |
                 Q(user__phone__icontains=search) |
-                Q(court__location_id__name__icontains=search)
+                Q(court__location_id__name__icontains=search) |
+                Q(court__court_number__icontains=search)
             )
 
         # 3. Apply location (address) filter using new `location` key
@@ -2023,67 +1943,7 @@ class BookingListView(APIView):
         paginated_qs = paginator.paginate_queryset(bookings, request)
         serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
         return paginator.get_paginated_response(serializer.data)
-
-
-
-
-    # def get(self, request):
-    #     user = request.user
-    #     search = request.query_params.get('search', '')
-    #     export = request.query_params.get('export', '')
-    #     start_date = request.query_params.get('start_date')
-    #     end_date = request.query_params.get('end_date')
-
-    #     # 1. Get bookings based on user type
-    #     if user.user_type == 0:  # SuperAdmin
-    #         bookings = CourtBooking.objects.select_related('user', 'court__location_id')
-    #     elif user.user_type == 1:  # Admin
-    #         assigned_locations = user.locations.all()
-    #         bookings = CourtBooking.objects.filter(
-    #             Q(court__location_id__in=assigned_locations) | Q(user=user)
-    #         ).select_related('user', 'court__location_id')
-    #     else:
-    #         bookings = CourtBooking.objects.none()
-
-    #     # 2. Apply search filter
-    #     if search:
-    #         bookings = bookings.annotate(
-    #             full_address=Concat(
-    #                 'court__location_id__address_1', V(' '),
-    #                 'court__location_id__address_2', V(' '),
-    #                 'court__location_id__address_3', V(' '),
-    #                 'court__location_id__address_4',
-    #                 output_field=CharField()
-    #             )
-    #         ).filter(
-    #             Q(user__first_name__icontains=search) |
-    #             Q(user__last_name__icontains=search) |
-    #             Q(user__email__icontains=search) |
-    #             Q(user__phone__icontains=search) |
-    #             Q(full_address__icontains=search)
-    #         )
-    #     # 3. Apply date filter (format: YYYY-MM-DD)
-    #     if start_date:
-    #         try:
-    #             start_date_obj = datetime.strptime(start_date, "%Y-%m-%d").date()
-    #             bookings = bookings.filter(booking_date__gte=start_date_obj)
-    #         except ValueError:
-    #             pass  # Ignore if invalid
-
-    #     if end_date:
-    #         try:
-    #             end_date_obj = datetime.strptime(end_date, "%Y-%m-%d").date()
-    #             bookings = bookings.filter(booking_date__lte=end_date_obj)
-    #         except ValueError:
-    #             pass  # Ignore if invalid
-
-    #     # 4. Paginate and return JSON response
-    #     paginator = LargeResultsSetPagination()
-    #     paginated_qs = paginator.paginate_queryset(bookings, request)
-    #     serializer = CourtBookingWithUserSerializer(paginated_qs, many=True)
-    #     return paginator.get_paginated_response(serializer.data)
-
-    
+  
     
 
 
@@ -2114,8 +1974,7 @@ class DownloadCSVView(APIView):
                 Q(user__email__icontains=search) |
                 Q(user__phone__icontains=search)
             )
-        # 4. Paginate and return JSON response
-        # paginator = LargeResultsSetPagination()
-        # paginated_qs = paginator.paginate_queryset(bookings, request)
+
+
         serializer = CourtBookingWithUserSerializer(bookings, many=True)
         return Response(serializer.data)

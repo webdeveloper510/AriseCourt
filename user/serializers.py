@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_DOWN, InvalidOperation,ROUND_HALF_UP
 
 
+
 class UserSerializer(serializers.ModelSerializer):
     confirm_password = serializers.CharField(write_only=True)
     location_id = serializers.IntegerField(write_only=True)
@@ -94,47 +95,18 @@ class LocationDataSerializer(serializers.ModelSerializer):
         fields = ['id','description', 'address_1', 'address_2', 'address_3', 'address_4','name', 'city', 'state', 'country']
 
 
-# class AdminRegistrationSerializer(serializers.ModelSerializer):
-#     access_flag = serializers.SerializerMethodField()
-#     location_id = serializers.IntegerField(write_only=True)
-#     location = serializers.IntegerField(source='location.id', read_only=True) 
-#     class Meta:
-#         model = User
-#         fields = ['id', 'first_name', 'last_name', 'email', 'phone','location_id','location','user_type', 'password', 'created_at', 'updated_at','access_flag']
-#         extra_kwargs = {
-#             'password': {'write_only': True},
-#             'user_type': {'default': 1}
-#         }
-
-#     def create(self, validated_data):
-#         password = validated_data.pop('password')
-#         location_id = validated_data.pop('location_id')
-
-#         user = User(**validated_data)
-#         user.location_id = location_id 
-#         user.set_password(password)
-#         user.save()
-#         return user
-    
-#     def get_access_flag(self, obj):
-#         try:
-#             permission = AdminPermission.objects.get(user=obj)
-#             return permission.access_flag
-#         except AdminPermission.DoesNotExist:
-#             return None
-
 
 class AdminRegistrationSerializer(serializers.ModelSerializer):
     access_flag = serializers.SerializerMethodField()
     location_id = serializers.IntegerField(write_only=True)
-    country = serializers.CharField(write_only=True, required=False)
-    # locations = LocationDataSerializer(many=True, read_only=True) 
+    country = serializers.CharField(required=False)
+    locations = LocationDataSerializer(many=True, read_only=True) 
 
     class Meta:
         model = User
         fields = [
             'id', 'first_name', 'last_name', 'email', 'phone',
-            'user_type', 'password','location_id',
+            'user_type', 'password','locations','location_id',
             'created_at', 'updated_at', 'access_flag','country'
         ]
         extra_kwargs = {
@@ -225,16 +197,7 @@ class LocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Location
         fields = '__all__'
-
-
-
-    # def get_courts(self, obj):
-    #     # Only include courts where availability=True
-    #     courts = Court.objects.filter(location_id=obj.id, availability=True)
-    #     data = CourtSerializer(courts, many=True).data
-    #     for court in data:
-    #         court['court_id'] = court.pop('id')  # Rename 'id' to 'court_id'
-    #     return data    
+ 
         
 
     def get_courts(self, obj):
@@ -322,30 +285,12 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             return 0.0
         
 
-
-    # def get_tax(self, obj):
-    #     try:
-    #         base_price = float(obj.total_price or 0)
-    #         tax_percent = float(obj.court.tax or 0)
-    #         return round(base_price * tax_percent / 100, 2)
-    #     except:
-    #         return "0.00 (0%)"
-
-
     def get_address(self, obj):
         location = obj.court.location_id
         # Combine all address parts, remove empty ones, and join with commas
         parts = [location.address_1, location.address_2, location.address_3, location.address_4]
         return ", ".join([p for p in parts if p])     
 
-
-    # def get_cc_fees(self, obj):
-    #     try:
-    #         base_price = float(obj.total_price or 0)
-    #         cc_percent = float(obj.court.cc_fees or 0)
-    #         return round(base_price * cc_percent / 100, 2)
-    #     except:
-    #         return "0.00 (0%)"   
 
 
     def get_on_amount(self, obj):
@@ -475,22 +420,35 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'user', 'court','tax','cc_fees'
         ]
 
+    # def get_tax(self, obj):
+    #     """Calculate tax as percentage of total_price using court.tax without rounding"""
+    #     if obj.total_price and obj.court and obj.court.tax:
+    #         tax = Decimal(str(obj.total_price)) * Decimal(str(obj.court.tax)) / Decimal('100')
+    #         return tax.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    #     return Decimal('0.00')
+
+    # def get_cc_fees(self, obj):
+    #     """Calculate cc_fees as percentage of total_price using court.cc_fees without rounding"""
+    #     if obj.total_price and obj.court and obj.court.cc_fees:
+    #         cc = Decimal(str(obj.total_price)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
+    #         return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    #     return Decimal('0.00')
+ 
+
     def get_tax(self, obj):
         """Calculate tax as percentage of total_price using court.tax without rounding"""
-        if obj.total_price and obj.court and obj.court.tax:
-            tax = Decimal(str(obj.total_price)) * Decimal(str(obj.court.tax)) / Decimal('100')
+        if obj.on_amount and obj.court and obj.court.tax:
+            tax = Decimal(str(obj.on_amount)) * Decimal(str(obj.court.tax)) / Decimal('100')
             return tax.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         return Decimal('0.00')
 
     def get_cc_fees(self, obj):
         """Calculate cc_fees as percentage of total_price using court.cc_fees without rounding"""
-        if obj.total_price and obj.court and obj.court.cc_fees:
-            cc = Decimal(str(obj.total_price)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
+        if obj.on_amount and obj.court and obj.court.cc_fees:
+            cc = Decimal(str(obj.on_amount)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
             return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         return Decimal('0.00')
-
-
-
+    
 
 
 class UpdateProfileSerializer(serializers.ModelSerializer):
@@ -565,39 +523,6 @@ class AdminCourtBookingSerializer(serializers.ModelSerializer):
 
         return ", ".join(filter(None, map(str.strip, filter(None, parts))))
 
-
-    # def get_tax(self, obj):
-    #     try:
-    #         tax_rate = float(obj.court.tax or 0)
-    #         total_price = float(obj.total_price or 0)
-    #         tax = total_price * (tax_rate / 100)
-    #         return f"{round(tax, 2)} ({tax_rate}%)"
-    #     except Exception:
-    #         return None
-
-    # def get_cc_fees(self, obj):
-    #     try:
-    #         cc_rate = float(obj.court.cc_fees or 0)
-    #         total_price = float(obj.total_price or 0)
-    #         cc_fee = total_price * (cc_rate / 100)
-    #         return f"{round(cc_fee, 2)} ({cc_rate}%)"
-    #     except Exception:
-    #         return None
-
-    # def get_on_amount(self, obj):
-    #     try:
-    #         total_price = float(obj.total_price or 0)
-    #         tax = float(obj.court.tax or 0)
-    #         cc = float(obj.court.cc_fees or 0)
-
-    #         total_tax = total_price * (tax / 100)
-    #         total_cc = total_price * (cc / 100)
-    #         return round(total_price + total_tax + total_cc, 2)
-    #     except Exception:
-    #         return None
-
-    # def get_total_price(self, obj):
-    #     return float(obj.total_price or 0)
 
     def get_tax(self, obj):
         try:

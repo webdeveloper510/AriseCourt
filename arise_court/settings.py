@@ -16,7 +16,7 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 DOMAIN_URL = config('DOMAIN_URL')
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['*,http://get1court.com/ ,https://get1court.com/']
 
 
 # Application definition
