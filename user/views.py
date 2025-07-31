@@ -31,7 +31,7 @@ from datetime import datetime, time
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.exceptions import ValidationError
 from django.db.models import Q, Value, CharField
-from django.db.models.functions import Concat,Coalesce
+from django.db.models.functions import Concat
 import openpyxl
 from io import BytesIO
 
@@ -148,6 +148,16 @@ class UserCreateView(APIView):
         }
 
         return Response(response_data, status=status.HTTP_200_OK)
+    
+    
+class UserDeleteView(APIView):
+    def delete(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+        user.delete()
+        return Response({
+            "message": "User deleted successfully.",
+            "status": status.HTTP_200_OK
+        }, status=status.HTTP_200_OK)
 
     
 
@@ -292,7 +302,6 @@ class VerifyEmailView(View):
         
         if user.is_verified:
             return HttpResponse("Your email is already verified.")
-
         user.is_verified = True
         user.save()
         return HttpResponse("Email verified successfully! You can now log in.")
@@ -441,7 +450,6 @@ class LocationViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-
         return Response({
             "message": "Location updated Successfully.",
             "status_code": 200,
@@ -742,7 +750,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 Q(court__location_id__description__icontains=search) |
                 Q(full_address__icontains=search)  # ✅ Search in combined address
             )
-
+ 
         # Filter by booking type (past/upcoming)
         if booking_type == 'past':
             bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
@@ -1819,8 +1827,6 @@ class BookedLocationDropdownView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
     
 
-
-
 class LocationListView(viewsets.ModelViewSet):
     """
     Returns all locations without pagination or filters.
@@ -1832,8 +1838,6 @@ class LocationListView(viewsets.ModelViewSet):
     def get_queryset(self):
         return Location.objects.all() 
     
-
-
 
 
 class UserBasicDataView(APIView):
@@ -1894,7 +1898,7 @@ class BookingListView(APIView):
         elif user.user_type == 1:  # Admin
             assigned_locations = user.locations.all()
             bookings = CourtBooking.objects.filter(
-                Q(court__location_id__in=assigned_locations) | Q(user=user)
+                Q(court__location_id__in=assigned_locations) | Q(user=user) 
             ).select_related('user', 'court__location_id')
         else:
             bookings = CourtBooking.objects.none()

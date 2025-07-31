@@ -79,10 +79,6 @@ class Location(models.Model):
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
 
-
-
-
-
 class Court(BaseModel):
     location_id = models.ForeignKey(Location, on_delete=models.CASCADE)
     court_number = models.CharField(max_length=30)
@@ -92,7 +88,6 @@ class Court(BaseModel):
     availability = models.BooleanField(default=False)
     start_time = models.TimeField(null=True, blank=True)
     end_time = models.TimeField(null=True, blank=True)
-
 
 
 class CourtBooking(models.Model):
@@ -125,11 +120,9 @@ class ContactUs(models.Model):
     message = models.TextField()
 
 
-
 class AdminPermission(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     access_flag = models.CharField(max_length=10)
-
 
 
 class Payment(models.Model):

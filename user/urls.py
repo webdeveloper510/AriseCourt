@@ -19,6 +19,7 @@ router.register(r'all_locations', LocationListView, basename='all-locations')
 urlpatterns = [
     path('', include(router.urls)),
     path('register/', UserCreateView.as_view(), name="register"),
+    path('delete-user/<int:user_id>/', UserDeleteView.as_view(), name="delete-user"),
     path('login/', UserLoginView.as_view(), name='login'),
     path('send-reset-email/', PasswordResetEmailView.as_view(), name='send-reset-email'),
     path('verify-email/<uuid:uuid>/', VerifyEmailView.as_view(), name='verify_email'),
@@ -27,9 +28,9 @@ urlpatterns = [
     path('resend-otp/', ResendOTPView.as_view(), name='resend-otp'),
     path('reporting-data/', StatsAPIView.as_view(), name='stats'),
     path('user-data/', UserData.as_view(), name='user-data'),
+    
     path('users-data/', BookingListView.as_view(), name='users-data'),
     path('download_csv/', DownloadCSVView.as_view(), name='download-csv'),
-
     path('profile/', ProfileView.as_view(), name='profile'),
     path('check_court_availability/', CourtAvailabilityView.as_view(), name='check_court_availability'),
     path('stripe-webhook/', stripe_webhook, name='stripe-webhook'),
