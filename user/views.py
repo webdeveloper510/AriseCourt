@@ -149,7 +149,7 @@ class UserCreateView(APIView):
 
         return Response(response_data, status=status.HTTP_200_OK)
     
-    
+
 class UserDeleteView(APIView):
     def delete(self, request, user_id):
         user = get_object_or_404(User, id=user_id)
@@ -407,7 +407,7 @@ class LocationViewSet(viewsets.ModelViewSet):
     # queryset = Location.objects.all()
     queryset = Location.objects.filter(status=False)  # ✅ Only unassigned locations
 
-    serializer_class = LocationSerializer
+    serializer_class = LocationSerializer   
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
     search_fields = ['user__first_name', 'email', 'phone', 'city','address_1','address_2','address_3','address_4','description','state','country']
@@ -1226,7 +1226,7 @@ class CreatePaymentIntentView(APIView):
 @csrf_exempt
 def stripe_webhook(request):
     payload = request.body
-    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+    sig_header = request.META.get('HTTPS_STRIPE_SIGNATURE')
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
 
     try:

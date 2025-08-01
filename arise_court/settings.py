@@ -13,7 +13,15 @@ config = Config(RepositoryEnv(env_path))
 # Load sensitive or configurable values from .env
 SECRET_KEY = config('SECRET_KEY')
 DEBUG = config('DEBUG', default=False, cast=bool)
+
+
+
+
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
+STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
+
+
+
 DOMAIN_URL = config('DOMAIN_URL')
 
 ALLOWED_HOSTS = ['*']
@@ -50,7 +58,8 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOWED_ORIGINS = [
     "https://get1court.com",
-    "http://get1court.com"
+    "http://get1court.com",
+    
 ]
 
 
