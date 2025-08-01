@@ -1225,9 +1225,13 @@ class CreatePaymentIntentView(APIView):
 
 @csrf_exempt
 def stripe_webhook(request):
+    print("Headersssssssssssssssssss:", request.headers)
+    print("Bodyyyyyyyyyyyy:", request.body)
+
+
     payload = request.body
     print("---------",payload)
-    sig_header = request.META.get('HTTPS_STRIPE_SIGNATURE')
+    sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
     print("==================",sig_header)
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
     print("9999999999999999",endpoint_secret)
