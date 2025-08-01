@@ -697,9 +697,15 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         # Get bookings based on user type
         if request.user.is_superuser:
-            bookings = CourtBooking.objects.all()
+            bookings = CourtBooking.objects.filter(
+                booking_payments__payment_status='confirmed'
+            )
         else:
-            bookings = CourtBooking.objects.filter(user=request.user)
+            bookings = CourtBooking.objects.filter(
+                user=request.user,
+                booking_payments__payment_status='confirmed'
+            )
+
 
         # Annotate a combined address field
         bookings = bookings.annotate(
@@ -1138,7 +1144,7 @@ class CourtAvailabilityView(APIView):
             # ✅ Condition 2: Check for regular and repeating bookings
             bookings = CourtBooking.objects.filter(
                 court=court,
-                status__in=['pending', 'confirmed']
+                status__in=['confirmed']
             )
             same_day_bookings = bookings.filter(booking_date=date_obj)
 
@@ -1225,16 +1231,15 @@ class CreatePaymentIntentView(APIView):
 
 @csrf_exempt
 def stripe_webhook(request):
-    print("Headersssssssssssssssssss:", request.headers)
-    print("Bodyyyyyyyyyyyy:", request.body)
+    
 
 
     payload = request.body
-    print("---------",payload)
+
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-    print("==================",sig_header)
+
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
-    print("9999999999999999",endpoint_secret)
+    
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
@@ -1242,7 +1247,7 @@ def stripe_webhook(request):
         return HttpResponse(status=400)
 
     if event['type'] == 'payment_intent.succeeded':
-        print("passsssssssssssssssssssssssss")
+       
         intent = event['data']['object']
         payment_intent_id = intent['id']
         amount_received = intent['amount_received'] / 100  # cents to dollars
@@ -1270,10 +1275,9 @@ def stripe_webhook(request):
             if booking.status != "confirmed":
                 booking.status = "confirmed"
                 booking.save()
-        except CourtBooking.DoesNotExist as e:
-            print(f"Booking not found: {e}")
-        # except CourtBooking.DoesNotExist:
-        #     pass  # Optional: log this
+        
+        except CourtBooking.DoesNotExist:
+            pass  # Optional: log this
 
     return HttpResponse(status=200)
 
