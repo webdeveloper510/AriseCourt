@@ -698,12 +698,12 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         # Get bookings based on user type
         if request.user.is_superuser:
             bookings = CourtBooking.objects.filter(
-                booking_payments__payment_status='confirmed'
+                booking_payments__payment_status='successful'
             )
         else:
             bookings = CourtBooking.objects.filter(
                 user=request.user,
-                booking_payments__payment_status='confirmed'
+                booking_payments__payment_status='successful'
             )
 
 
