@@ -836,8 +836,36 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         created_bookings.append(main_booking)
 
         # ✅ Repeat for next 3 weeks (if book_for_four_weeks is true)
+        # if book_for_four_weeks:
+        #     original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+        #     for i in range(1, 4):
+        #         next_date = original_date + timedelta(weeks=i)
+
+        #         if not CourtBooking.objects.filter(
+        #             court_id=court_id,
+        #             booking_date=next_date,
+        #             start_time__lt=start_time,
+        #             end_time__gt=end_time
+        #         ).filter(
+        #             Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+        #         ).exists():
+        #             new_booking = CourtBooking.objects.create(
+        #                 user=user,
+        #                 court_id=court_id,
+        #                 booking_date=next_date,
+        #                 start_time=start_time,
+        #                 end_time=end_time,
+        #                 duration_time=duration,
+        #                 book_for_four_weeks=True,
+        #                 on_amount=str(total),
+        #                 total_price=data.get('total_price'),
+        #                 status=main_booking.status
+        #             )
+        #             created_bookings.append(new_booking)
         if book_for_four_weeks:
             original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+            has_successful_payment = main_booking.booking_payments.filter(payment_status='successful').exists()
+
             for i in range(1, 4):
                 next_date = original_date + timedelta(weeks=i)
 
@@ -849,6 +877,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 ).filter(
                     Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
                 ).exists():
+                    # Default to 'pending' status
+                    status_to_set = 'confirmed' if has_successful_payment else main_booking.status
+
                     new_booking = CourtBooking.objects.create(
                         user=user,
                         court_id=court_id,
@@ -859,7 +890,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         book_for_four_weeks=True,
                         on_amount=str(total),
                         total_price=data.get('total_price'),
-                        status='confirmed' if user.user_type in [0, 1] else 'pending'
+                        status=status_to_set
                     )
                     created_bookings.append(new_booking) 
 
