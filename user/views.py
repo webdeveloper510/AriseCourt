@@ -698,12 +698,12 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         # Get bookings based on user type
         if request.user.is_superuser:
             bookings = CourtBooking.objects.filter(
-                booking_payments__payment_status='successful'
+                status='confirmed'
             )
         else:
             bookings = CourtBooking.objects.filter(
                 user=request.user,
-                booking_payments__payment_status='successful'
+                status='confirmed'
             )
 
 
@@ -1285,8 +1285,6 @@ def stripe_webhook(request):
 
 class PaymentSuccessAPIView(APIView):
 
-
-
     def post(self, request):
         payment_intent = request.data.get("payment_intent_id")
         if not payment_intent:
@@ -1313,6 +1311,7 @@ class PaymentSuccessAPIView(APIView):
             # ✅ Update other bookings for the same court with book_for_four_weeks=True and status='pending'
             CourtBooking.objects.filter(
                 court=booking.court,
+                user=request.user,
                 book_for_four_weeks=True,
                 status='pending'
             ).update(status='confirmed')
