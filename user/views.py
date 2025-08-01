@@ -1226,8 +1226,11 @@ class CreatePaymentIntentView(APIView):
 @csrf_exempt
 def stripe_webhook(request):
     payload = request.body
+    print("---------",payload)
     sig_header = request.META.get('HTTPS_STRIPE_SIGNATURE')
+    print("==================",sig_header)
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+    print("9999999999999999",endpoint_secret)
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
@@ -1235,6 +1238,7 @@ def stripe_webhook(request):
         return HttpResponse(status=400)
 
     if event['type'] == 'payment_intent.succeeded':
+        print("passsssssssssssssssssssssssss")
         intent = event['data']['object']
         payment_intent_id = intent['id']
         amount_received = intent['amount_received'] / 100  # cents to dollars
@@ -1262,9 +1266,10 @@ def stripe_webhook(request):
             if booking.status != "confirmed":
                 booking.status = "confirmed"
                 booking.save()
-
-        except CourtBooking.DoesNotExist:
-            pass  # Optional: log this
+        except CourtBooking.DoesNotExist as e:
+            print(f"Booking not found: {e}")
+        # except CourtBooking.DoesNotExist:
+        #     pass  # Optional: log this
 
     return HttpResponse(status=200)
 
