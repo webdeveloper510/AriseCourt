@@ -186,5 +186,5 @@ BACKEND_URL ="http://3.12.136.26:8000"
 
 
 CRONJOBS = [
-    ('*/5 * * * *', 'user.cron.deletePendingBookings') 
+    ('58 11 * * *', 'user.cron.deletePendingBookings') 
 ]
