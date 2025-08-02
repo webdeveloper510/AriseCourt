@@ -12,9 +12,6 @@ class BaseModel(models.Model):
     created_at = models.DateTimeField(auto_now_add=True,null=True)
     updated_at = models.DateTimeField(auto_now=True,null=True)
 
-    
-
-
 
 class User(BaseModel,AbstractBaseUser, PermissionsMixin):
     USER_TYPES = (
@@ -110,7 +107,6 @@ class CourtBooking(models.Model):
     status = models.CharField(max_length=20, choices=status_choices, default='pending')
     created_at = models.DateTimeField(auto_now_add=True,null=True)
     updated_at = models.DateTimeField(auto_now=True,null=True)
-
 
 
 class ContactUs(models.Model):

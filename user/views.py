@@ -1312,9 +1312,7 @@ class PaymentSuccessAPIView(APIView):
 
             # ✅ Update other bookings for the same court with book_for_four_weeks=True and status='pending'
             CourtBooking.objects.filter(
-                court=booking.court,
-                user=request.user,
-                book_for_four_weeks=True,
+                parent_booking=str(booking.id),
                 status='pending'
             ).update(status='confirmed')
 
