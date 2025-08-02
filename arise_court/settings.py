@@ -16,7 +16,6 @@ DEBUG = config('DEBUG', default=False, cast=bool)
 
 
 
-
 STRIPE_SECRET_KEY = config('STRIPE_SECRET_KEY')
 STRIPE_WEBHOOK_SECRET = config('STRIPE_WEBHOOK_SECRET')
 
@@ -182,3 +181,4 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 
 BACKEND_URL ="http://3.12.136.26:8000"
+

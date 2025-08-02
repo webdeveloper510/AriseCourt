@@ -1,7 +1,9 @@
 
-# Virtual environment
-venv/
-.env/
-myenv/
+# Ignore Environment fike
+env
 
+# Ignore Virtuale env
+myenv
+
+# Ignore Database
 db.sqlite3

@@ -807,7 +807,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                 "code": "400"
             }, status=status.HTTP_409_CONFLICT)
 
-        # ✅ Calculate on_amount (total + tax + cc_fees)
+        #  Calculate on_amount (total + tax + cc_fees)
         try:
             on_amount = float(data.get('on_amount') or 0)
             court = Court.objects.get(id=court_id)
@@ -816,7 +816,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             tax_amount = on_amount * (tax_percent / 100)
             cc_fee_amount = on_amount * (cc_fees_percent / 100)
             total = on_amount + tax_amount + cc_fee_amount
-            # data['on_amount'] = str(total)  # ✅ Save to DB
+            # data['on_amount'] = str(total)  #  Save to DB
             data['on_amount'] = "{:.2f}".format(total)  # force 2 decimal places
             data['total'] = total
         except:
@@ -832,10 +832,11 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         else:
             main_booking = serializer.save(user=user)
 
+        print("Main booking ---> ", main_booking)
         MailUtils.booking_confirmation_mail(user, main_booking)
         created_bookings.append(main_booking)
 
-        # ✅ Repeat for next 3 weeks (if book_for_four_weeks is true)
+        #  Repeat for next 3 weeks (if book_for_four_weeks is true)
         if book_for_four_weeks:
             original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
             for i in range(1, 4):
@@ -859,6 +860,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         book_for_four_weeks=True,
                         on_amount=str(total),
                         total_price=data.get('total_price'),
+                        parent_booking=str(main_booking.id),  # Save main booking ID here
                         status=main_booking.status
                     )
                     created_bookings.append(new_booking)
