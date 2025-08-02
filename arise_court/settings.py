@@ -182,3 +182,8 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 BACKEND_URL ="http://3.12.136.26:8000"
 
+
+
+CRONJOBS = [
+    ('*/5 * * * *', 'user.cron.deletePendingBookings') 
+]

@@ -2031,3 +2031,15 @@ class DownloadCSVView(APIView):
 
         serializer = CourtBookingWithUserSerializer(bookings, many=True)
         return Response(serializer.data)
+
+
+
+class DeletePendingBookingsAPIView(APIView):
+
+    def delete(self, request):
+        deleted_count, _ = CourtBooking.objects.filter(status='pending').delete()
+        return Response({
+            "message": f"{deleted_count} pending bookings deleted successfully."
+        }, status=status.HTTP_200_OK)
+    
+    
