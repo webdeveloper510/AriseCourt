@@ -19,6 +19,7 @@ router.register(r'all_locations', LocationListView, basename='all-locations')
 urlpatterns = [
     path('', include(router.urls)),
     path('register/', UserCreateView.as_view(), name="register"),
+    path('user-register/', UserRegisterView.as_view(), name="user_register"),
     path('delete-user/<int:user_id>/', UserDeleteView.as_view(), name="delete-user"),
     path('login/', UserLoginView.as_view(), name='login'),
     path('send-reset-email/', PasswordResetEmailView.as_view(), name='send-reset-email'),

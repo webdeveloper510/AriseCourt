@@ -831,7 +831,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         else:
             main_booking = serializer.save(user=user)
 
-        print("Main booking ---> ", main_booking)
         MailUtils.booking_confirmation_mail(user, main_booking)
         created_bookings.append(main_booking)
 
@@ -870,7 +869,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             "status_code": status.HTTP_201_CREATED,
             "data": response_serializer.data
         }, status=status.HTTP_201_CREATED)
-
+    
+    
     def update(self, request, *args, **kwargs):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
@@ -1034,6 +1034,45 @@ class ProfileView(APIView):
             "message": "Profile fetched successfully",
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+
+
+
+# from user.utils import register_smtp_for_user
+# class ProfileView(APIView):
+#     permission_classes = [IsAuthenticated]
+
+#     def put(self, request):
+#         user = request.user
+
+#         # Check if SMTP is being updated
+#         is_updating_smtp = request.data.get("EMAIL_HOST_USER") or request.data.get("EMAIL_HOST_PASSWORD")
+
+#         if is_updating_smtp:
+#             smtp_config = {
+#                 "EMAIL_HOST_USER": request.data.get("EMAIL_HOST_USER"),
+#                 "EMAIL_HOST_PASSWORD": request.data.get("EMAIL_HOST_PASSWORD"),
+#                 "EMAIL_HOST": request.data.get("EMAIL_HOST"),  # optional
+#                 "EMAIL_PORT": request.data.get("EMAIL_PORT"),  # optional
+#                 "EMAIL_USE_TLS": request.data.get("EMAIL_USE_TLS", True),
+#             }
+
+#             smtp_check = register_smtp_for_user(user, smtp_config)
+#             if not smtp_check["success"]:
+#                 return Response({
+#                     "code": "400",
+#                     "message": smtp_check["message"],
+#                 }, status=status.HTTP_400_BAD_REQUEST)
+
+#         # Now continue to update the rest of the profile fields
+#         serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
+#         serializer.is_valid(raise_exception=True)
+#         serializer.save()
+
+#         return Response({
+#             "code": "200",
+#             "message": "Profile updated successfully",
+#             "data": serializer.data
+#         }, status=status.HTTP_200_OK)
 
 
 
@@ -2052,4 +2091,19 @@ class DeletePendingBookingsAPIView(APIView):
             "message": f"{deleted_count} pending bookings deleted successfully."
         }, status=status.HTTP_200_OK)
     
-    
+
+class UserRegisterView(APIView):
+    def post(self, request):
+        serializer = UserRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            MailUtils.send_verification_email(user)
+            return Response({
+                "message": "Please check your email to verify your account before logging in.",
+                "status": status.HTTP_201_CREATED
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            "code": "400",
+            "errors": serializer.errors,
+            "message": "User registration failed."
+        }, status=status.HTTP_400_BAD_REQUEST)

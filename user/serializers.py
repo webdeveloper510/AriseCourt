@@ -574,3 +574,33 @@ class UserBasicDataSerializer(serializers.ModelSerializer):
         fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'user_type']
 
     
+class UserRegisterSerializer(serializers.ModelSerializer):
+    confirm_password = serializers.CharField(write_only=True)
+    location_id = serializers.IntegerField(write_only=True)
+    class Meta:
+        model = User
+        fields = '__all__'
+        extra_kwargs = {
+            'password': {'write_only': True},
+            'location': {'read_only': True} 
+        }
+
+
+    def create(self, validated_data):
+        validated_data.pop('confirm_password')
+        password = validated_data.pop('password')
+        location_id = validated_data.pop('location_id')
+        validated_data['email'] = validated_data['email'].lower()
+
+        user = User(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        # Assign the many-to-many location
+        try:
+            location = Location.objects.get(id=location_id)
+            user.locations.add(location)
+        except Location.DoesNotExist:
+            raise serializers.ValidationError({"location_id": "Invalid location ID."})
+
+        return user

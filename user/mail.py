@@ -67,6 +67,7 @@ from django.core.mail import EmailMessage, get_connection
 
 
 
+
 def is_smtp_already_registered_by_another_admin(user):
     for location in user.locations.all():
         other_admin = location.assigned_superadmins.filter(
@@ -210,3 +211,23 @@ class MailUtils:
         email.send()
 
 
+# def register_smtp_for_user(user, smtp_config):
+#     existing_admin = is_smtp_already_registered_by_another_admin(user)
+
+#     if existing_admin:
+#         full_name = f"{existing_admin.first_name} {existing_admin.last_name}".strip()
+#         name_or_email = full_name if full_name else existing_admin.email
+
+#         # Send email notification to this user
+#         send_mail(
+#             subject="SMTP Configuration Blocked",
+#             message=f"SMTP is already registered by {name_or_email}. Please contact them to make changes.",
+#             from_email="noreply@yourapp.com",
+#             recipient_list=[user.email],
+#             fail_silently=True
+#         )
+
+#         return {
+#             "success": False,
+#             "message": f"SMTP already registered by admin: {name_or_email}. Please contact them to make changes."
+#         }
