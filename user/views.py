@@ -1252,52 +1252,52 @@ class CreatePaymentIntentView(APIView):
             total_amount = fee_data['total_amount']
             total_price = int(total_amount * 100)
             
-            intent = stripe.PaymentIntent.create(
-                amount=total_price,
-                currency="usd",
+            # intent = stripe.PaymentIntent.create(
+            #     amount=total_price,
+            #     currency="usd",
+            #     payment_method_types=["card"],
+            #     metadata={
+            #         "booking_id": str(booking.id),
+            #         "court_id": str(court.id),
+            #     }
+            # )
+
+            #  Create Checkout Session (for redirect URL)
+            session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
+                line_items=[
+                    {
+                        "price_data": {
+                            "currency": "usd",
+                            "product_data": {
+                                "name": f"Court Booking #{booking.id}",
+                            },
+                            "unit_amount": total_price,
+                        },
+                        "quantity": 1,
+                    }
+                ],
+                mode="payment",
                 metadata={
                     "booking_id": str(booking.id),
                     "court_id": str(court.id),
                 },
-                success_url=f"http://localhost:3000/payment/success?payment_intent_id={intent.id}",
+                success_url="http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}",
                 # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
                 cancel_url="https://yourdomain.com/cancel",
             )
 
-            #  Create Checkout Session (for redirect URL)
-            # session = stripe.checkout.Session.create(
-            #     payment_method_types=["card"],
-            #     line_items=[
-            #         {
-            #             "price_data": {
-            #                 "currency": "usd",
-            #                 "product_data": {
-            #                     "name": f"Court Booking #{booking.id}",
-            #                 },
-            #                 "unit_amount": total_price,
-            #             },
-            #             "quantity": 1,
-            #         }
-            #     ],
-            #     mode="payment",
-            #     metadata={
-            #         "booking_id": str(booking.id),
-            #         "court_id": str(court.id),
-            #     },
-            #     success_url=f"http://localhost:3000/payment/success?payment_intent_id={intent.id}",
-            #     # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
-            #     cancel_url="https://yourdomain.com/cancel",
-            # )
-
 
             # Save intent ID for reference
-            booking.stripe_payment_intent_id = intent.id
+            print("hhhhhhhhhhhhh",session.id)
+          
+
+            booking.stripe_payment_intent_id = session.id
             booking.save()
 
             return Response({
-                "client_secret": intent.client_secret,
-                "checkout_url": intent.url,
+                "client_secret": session.client_secret,
+                "checkout_url": session.url,
                 "amount_details": {
                     "total": total_price
                 }
@@ -1312,9 +1312,14 @@ class CreatePaymentIntentView(APIView):
 
 @csrf_exempt
 def stripe_webhook(request):
+    
+
     payload = request.body
+
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
+
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+    
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
