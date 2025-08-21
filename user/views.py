@@ -1262,12 +1262,38 @@ class CreatePaymentIntentView(APIView):
                 }
             )
 
+            #  Create Checkout Session (for redirect URL)
+            session = stripe.checkout.Session.create(
+                payment_method_types=["card"],
+                line_items=[
+                    {
+                        "price_data": {
+                            "currency": "usd",
+                            "product_data": {
+                                "name": f"Court Booking #{booking.id}",
+                            },
+                            "unit_amount": total_price,
+                        },
+                        "quantity": 1,
+                    }
+                ],
+                mode="payment",
+                metadata={
+                    "booking_id": str(booking.id),
+                    "court_id": str(court.id),
+                },
+                success_url="https://yourdomain.com/success?session_id={CHECKOUT_SESSION_ID}",
+                cancel_url="https://yourdomain.com/cancel",
+            )
+
+
             # Save intent ID for reference
             booking.stripe_payment_intent_id = intent.id
             booking.save()
 
             return Response({
                 "client_secret": intent.client_secret,
+                "checkout_url": session.url,
                 "amount_details": {
                     "total": total_price
                 }
