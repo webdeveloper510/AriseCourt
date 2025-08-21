@@ -1239,7 +1239,7 @@ class CourtAvailabilityView(APIView):
 
 
 class CreatePaymentIntentView(APIView):
-       
+
     def post(self, request):
         try:
             booking_id = request.data.get("booking_id")
@@ -1252,52 +1252,22 @@ class CreatePaymentIntentView(APIView):
             total_amount = fee_data['total_amount']
             total_price = int(total_amount * 100)
             
-            # intent = stripe.PaymentIntent.create(
-            #     amount=total_price,
-            #     currency="usd",
-            #     payment_method_types=["card"],
-            #     metadata={
-            #         "booking_id": str(booking.id),
-            #         "court_id": str(court.id),
-            #     }
-            # )
-
-            #  Create Checkout Session (for redirect URL)
-            session = stripe.checkout.Session.create(
+            intent = stripe.PaymentIntent.create(
+                amount=total_price,
+                currency="usd",
                 payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "product_data": {
-                                "name": f"Court Booking #{booking.id}",
-                            },
-                            "unit_amount": total_price,
-                        },
-                        "quantity": 1,
-                    }
-                ],
-                mode="payment",
                 metadata={
                     "booking_id": str(booking.id),
                     "court_id": str(court.id),
-                },
-                success_url="http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}",
-                # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
-                cancel_url="https://yourdomain.com/cancel",
+                }
             )
 
-
             # Save intent ID for reference
-            print("hhhhhhhhhhhhh",session.id)
-          
-
-            booking.stripe_payment_intent_id = session.id
+            booking.stripe_payment_intent_id = intent.id
             booking.save()
 
             return Response({
-                "client_secret": session.client_secret,
-                "checkout_url": session.url,
+                "client_secret": intent.client_secret,
                 "amount_details": {
                     "total": total_price
                 }
@@ -1307,6 +1277,74 @@ class CreatePaymentIntentView(APIView):
             return Response({"error": "Invalid booking ID"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+       
+    # def post(self, request):
+    #     try:
+    #         booking_id = request.data.get("booking_id")
+    #         booking = CourtBooking.objects.get(id=booking_id)
+    #         court = booking.court
+    #         total_price = booking.total_price
+    #         tax = court.tax                   
+    #         cc_fees = court.cc_fees 
+    #         fee_data = calculate_total_fee(total_price, tax, cc_fees)
+    #         total_amount = fee_data['total_amount']
+    #         total_price = int(total_amount * 100)
+            
+    #         # intent = stripe.PaymentIntent.create(
+    #         #     amount=total_price,
+    #         #     currency="usd",
+    #         #     payment_method_types=["card"],
+    #         #     metadata={
+    #         #         "booking_id": str(booking.id),
+    #         #         "court_id": str(court.id),
+    #         #     }
+    #         # )
+
+    #         #  Create Checkout Session (for redirect URL)
+    #         session = stripe.checkout.Session.create(
+    #             payment_method_types=["card"],
+    #             line_items=[
+    #                 {
+    #                     "price_data": {
+    #                         "currency": "usd",
+    #                         "product_data": {
+    #                             "name": f"Court Booking #{booking.id}",
+    #                         },
+    #                         "unit_amount": total_price,
+    #                     },
+    #                     "quantity": 1,
+    #                 }
+    #             ],
+    #             mode="payment",
+    #             metadata={
+    #                 "booking_id": str(booking.id),
+    #                 "court_id": str(court.id),
+    #             },
+    #             success_url="http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}",
+    #             # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
+    #             cancel_url="https://yourdomain.com/cancel",
+    #         )
+
+
+    #         # Save intent ID for reference
+    #         print("hhhhhhhhhhhhh",session.id)
+          
+
+    #         booking.stripe_payment_intent_id = session.id
+    #         booking.save()
+
+    #         return Response({
+    #             "client_secret": session.client_secret,
+    #             "checkout_url": session.url,
+    #             "amount_details": {
+    #                 "total": total_price
+    #             }
+    #         })
+
+    #     except CourtBooking.DoesNotExist:
+    #         return Response({"error": "Invalid booking ID"}, status=status.HTTP_404_NOT_FOUND)
+    #     except Exception as e:
+    #         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 
