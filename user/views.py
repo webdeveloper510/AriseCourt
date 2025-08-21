@@ -1282,8 +1282,9 @@ class CreatePaymentIntentView(APIView):
                     "booking_id": str(booking.id),
                     "court_id": str(court.id),
                 },
-                success_url="http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}",
-                cancel_url="http://localhost:3000/payment/cancel",
+                success_url=f"http://localhost:3000/payment/success?payment_intent_id={intent.id}",
+                # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
+                cancel_url="https://yourdomain.com/cancel",
             )
 
 
@@ -1308,15 +1309,9 @@ class CreatePaymentIntentView(APIView):
 
 @csrf_exempt
 def stripe_webhook(request):
-    
-
-
     payload = request.body
-
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
-
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
-    
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
@@ -1376,6 +1371,7 @@ class PaymentSuccessAPIView(APIView):
 
             # Get the related booking
             booking = payment.booking
+
 
             #  Mark this booking as confirmed
             booking.status = 'confirmed'
