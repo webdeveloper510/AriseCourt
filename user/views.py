@@ -1259,33 +1259,36 @@ class CreatePaymentIntentView(APIView):
                 metadata={
                     "booking_id": str(booking.id),
                     "court_id": str(court.id),
-                }
-            )
-
-            #  Create Checkout Session (for redirect URL)
-            session = stripe.checkout.Session.create(
-                payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "product_data": {
-                                "name": f"Court Booking #{booking.id}",
-                            },
-                            "unit_amount": total_price,
-                        },
-                        "quantity": 1,
-                    }
-                ],
-                mode="payment",
-                metadata={
-                    "booking_id": str(booking.id),
-                    "court_id": str(court.id),
                 },
                 success_url=f"http://localhost:3000/payment/success?payment_intent_id={intent.id}",
                 # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
                 cancel_url="https://yourdomain.com/cancel",
             )
+
+            #  Create Checkout Session (for redirect URL)
+            # session = stripe.checkout.Session.create(
+            #     payment_method_types=["card"],
+            #     line_items=[
+            #         {
+            #             "price_data": {
+            #                 "currency": "usd",
+            #                 "product_data": {
+            #                     "name": f"Court Booking #{booking.id}",
+            #                 },
+            #                 "unit_amount": total_price,
+            #             },
+            #             "quantity": 1,
+            #         }
+            #     ],
+            #     mode="payment",
+            #     metadata={
+            #         "booking_id": str(booking.id),
+            #         "court_id": str(court.id),
+            #     },
+            #     success_url=f"http://localhost:3000/payment/success?payment_intent_id={intent.id}",
+            #     # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
+            #     cancel_url="https://yourdomain.com/cancel",
+            # )
 
 
             # Save intent ID for reference
@@ -1294,7 +1297,7 @@ class CreatePaymentIntentView(APIView):
 
             return Response({
                 "client_secret": intent.client_secret,
-                "checkout_url": session.url,
+                "checkout_url": intent.url,
                 "amount_details": {
                     "total": total_price
                 }
