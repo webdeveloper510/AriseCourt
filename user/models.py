@@ -97,7 +97,7 @@ class CourtBooking(models.Model):
     total_price = models.CharField(blank=True, null=True,max_length=225)
     on_amount = models.CharField(blank=True, null=True,max_length=225)
     book_for_four_weeks = models.BooleanField(default=False)
-    parent_booking = models.CharField(null=True)
+    parent_booking = models.CharField(null=True, max_length=225)
     status_choices = [
         ('pending', 'Pending'),
         ('confirmed', 'Confirmed'),
