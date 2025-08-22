@@ -758,9 +758,9 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
  
         # Filter by booking type (past/upcoming)
         if booking_type == 'past':
-            bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
+            bookings = bookings.filter(booking_date__lt=today).order_by('-created_at')
         else:
-            bookings = bookings.filter(booking_date__gte=today).order_by('booking_date')
+            bookings = bookings.filter(booking_date__gte=today).order_by('-created_at')
 
         # Paginate and return response
         page = self.paginate_queryset(bookings)
@@ -2068,6 +2068,9 @@ class BookingListView(APIView):
             ).select_related('user', 'court__location_id')
         else:
             bookings = CourtBooking.objects.none()
+
+        # Show only successful payments
+        bookings = bookings.filter(booking_payments__payment_status="successful").distinct()
 
         # 2. Apply search filter for name, email, phone
         if search:
