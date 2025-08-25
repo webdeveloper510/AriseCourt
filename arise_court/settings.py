@@ -182,6 +182,7 @@ EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
 
 
 BACKEND_URL ="http://3.12.136.26:8000"
+FRONTEND_URL = "https://get1court.com"
 
 
 

@@ -259,7 +259,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     court_id = serializers.PrimaryKeyRelatedField(
     queryset=Court.objects.all(), source='court', write_only=True)
     booking_id = serializers.IntegerField(source='id', read_only=True)
-
+    
     amount = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
     cc_fees = serializers.SerializerMethodField()

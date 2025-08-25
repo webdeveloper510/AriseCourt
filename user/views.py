@@ -827,7 +827,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         created_bookings = []
 
         if user.user_type in [0, 1]:
-            main_booking = serializer.save(user=user, status='confirmed')
+            main_booking = serializer.save(user=user, status='pending')
         else:
             main_booking = serializer.save(user=user)
 
