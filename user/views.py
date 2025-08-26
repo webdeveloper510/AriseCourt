@@ -302,9 +302,37 @@ class VerifyEmailView(View):
         
         if user.is_verified:
             return HttpResponse("Your email is already verified.")
+        
+        # Expiry check (2 minutes after last update)
+        expiry_time = user.updated_at + timedelta(minutes=2)
+        if timezone.now() > expiry_time:
+            return HttpResponse("Invalid or expired verification link. Please request a new one.", status=400)
+
+    
         user.is_verified = True
         user.save()
         return HttpResponse("Email verified successfully! You can now log in.")
+
+
+class ResendVerificationView(View):
+    def post(self, request):
+        email = request.POST.get("email")
+        if not email:
+            return HttpResponse("Email is required.", status=400)
+
+        user = get_object_or_404(User, email=email)
+
+        # Already verified?
+        if user.is_verified:
+            return HttpResponse("Your email is already verified.")
+
+        # Refresh updated_at by saving (triggers new expiry window)
+        user.save(update_fields=["updated_at"])
+
+        MailUtils.send_verification_email(user)
+
+        return HttpResponse("Verification email resent successfully. Please check your inbox.", status=200)
+
 
 
 
@@ -2072,7 +2100,7 @@ class BookingListView(APIView):
         # Show only successful payments
         bookings = bookings.filter(status="confirmed")
 
-        
+
         # 2. Apply search filter for name, email, phone
         if search:
             bookings = bookings.filter(

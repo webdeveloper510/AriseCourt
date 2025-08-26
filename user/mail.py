@@ -165,7 +165,7 @@ class MailUtils:
         connection, from_email = MailUtils._get_connection_from_user(smtp_user)
 
         # verification_link = f"{settings.BACKEND_URL}/verify-email/{user.uuid}/"
-        verification_link = f"{settings.FRONTEND_URL}/verify-email/{user.uuid}/"       
+        verification_link = f"{settings.FRONTEND_URL}/verify-email?uuid={user.uuid}/"       
         subject = "Verify Your Email - Arise Court"
         html_message = render_to_string("email_verification_template/email.html", {
             'user': user,

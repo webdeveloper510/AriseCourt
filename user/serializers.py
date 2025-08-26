@@ -121,7 +121,7 @@ class AdminRegistrationSerializer(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
 
-        # ✅ Correct way to assign ManyToMany location
+        # Correct way to assign ManyToMany location
         user.locations.add(location_id)
         return user
    
