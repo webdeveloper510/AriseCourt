@@ -2070,8 +2070,9 @@ class BookingListView(APIView):
             bookings = CourtBooking.objects.none()
 
         # Show only successful payments
-        bookings = bookings.filter(booking_payments__payment_status="successful").distinct()
+        bookings = bookings.filter(status="confirmed")
 
+        
         # 2. Apply search filter for name, email, phone
         if search:
             bookings = bookings.filter(
