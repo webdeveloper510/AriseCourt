@@ -234,7 +234,7 @@ class UserLoginView(APIView):
 
         if user is None: 
             return Response({
-                'message': 'User details are incorrect or location is not assigned',
+                'message': 'Details are incorrect',
                 'code': "400"
             }, status=status.HTTP_200_OK)
 
