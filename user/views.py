@@ -232,7 +232,7 @@ class UserLoginView(APIView):
 
         user = authenticate(request, username=email, password=password)
 
-        if user is None:
+        if user is None: 
             return Response({
                 'message': 'User details are incorrect or location is not assigned',
                 'code': "400"
@@ -558,7 +558,7 @@ class AdminViewSet(viewsets.ModelViewSet):
     search_fields = ['first_name','last_name', 'email', 'phone']
     
     def get_queryset(self):
-        queryset = User.objects.filter(user_type=1)
+        queryset = User.objects.filter(user_type=1).order_by("-created_at")
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
 
@@ -568,6 +568,7 @@ class AdminViewSet(viewsets.ModelViewSet):
             if start and end:
                 queryset = queryset.filter(created_at__date__range=[start, end])
         return queryset
+   
     
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)

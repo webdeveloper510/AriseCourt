@@ -420,19 +420,34 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'user', 'court','tax','cc_fees'
         ]
 
+
     def get_tax(self, obj):
-        """Calculate tax as percentage of total_price using court.tax without rounding"""
-        if obj.on_amount and obj.court and obj.court.tax:
-            tax = Decimal(str(obj.on_amount)) * Decimal(str(obj.court.tax)) / Decimal('100')
+        """Calculate tax as percentage of court_fee_hrs"""
+        if obj.court and obj.court.court_fee_hrs and obj.court.tax:
+            tax = Decimal(str(obj.court.court_fee_hrs)) * Decimal(str(obj.court.tax)) / Decimal('100')
             return tax.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         return Decimal('0.00')
 
     def get_cc_fees(self, obj):
-        """Calculate cc_fees as percentage of total_price using court.cc_fees without rounding"""
-        if obj.on_amount and obj.court and obj.court.cc_fees:
-            cc = Decimal(str(obj.on_amount)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
+        """Calculate cc_fees as percentage of court_fee_hrs"""
+        if obj.court and obj.court.court_fee_hrs and obj.court.cc_fees:
+            cc = Decimal(str(obj.court.court_fee_hrs)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
             return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
-        return Decimal('0.00')
+        return Decimal('0.00')    
+
+    # def get_tax(self, obj):
+    #     """Calculate tax as percentage of total_price using court.tax without rounding"""
+    #     if obj.on_amount and obj.court and obj.court.tax:
+    #         tax = Decimal(str(obj.on_amount)) * Decimal(str(obj.court.tax)) / Decimal('100')
+    #         return tax.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    #     return Decimal('0.00')
+
+    # def get_cc_fees(self, obj):
+    #     """Calculate cc_fees as percentage of total_price using court.cc_fees without rounding"""
+    #     if obj.on_amount and obj.court and obj.court.cc_fees:
+    #         cc = Decimal(str(obj.on_amount)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
+    #         return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+    #     return Decimal('0.00')
  
 
     # def get_tax(self, obj):
