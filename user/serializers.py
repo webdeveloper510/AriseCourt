@@ -87,7 +87,7 @@ class UserLoginFieldsSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id','first_name','last_name','user_type','phone','is_verified','email','access_flag']
+        fields = ['id','first_name','last_name','user_type','phone','is_verified','email','access_flag', 'locations']
     
 
 
