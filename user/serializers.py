@@ -12,6 +12,8 @@ from .mail import MailUtils
 from django.contrib.auth.hashers import make_password
 from datetime import datetime, timedelta
 from decimal import Decimal, ROUND_DOWN, InvalidOperation,ROUND_HALF_UP
+from datetime import datetime, timedelta
+
 
 
 
@@ -421,19 +423,43 @@ class CourtBookingWithUserSerializer(serializers.ModelSerializer):
         ]
 
 
+    def get_duration_time(self, obj):
+        """Calculate duration in hours (decimal) for TimeField."""
+        if obj.start_time and obj.end_time:
+            # convert times to datetime objects on same date
+            today = datetime.today().date()
+            start_dt = datetime.combine(today, obj.start_time)
+            end_dt = datetime.combine(today, obj.end_time)
+
+            duration = (end_dt - start_dt).total_seconds() / 3600
+            if duration < 0:  # handle overnight bookings
+                duration += 24
+            return round(duration, 2)
+        return 0
+
+    def get_total_price_based_on_duration(self, obj):
+        """Calculate total base price = court_fee_hrs × duration."""
+        duration = self.get_duration_time(obj)
+        if obj.court and obj.court.court_fee_hrs:
+            base_price = Decimal(str(obj.court.court_fee_hrs)) * Decimal(str(duration))
+            return base_price.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+        return Decimal('0.00')
+
     def get_tax(self, obj):
-        """Calculate tax as percentage of court_fee_hrs"""
-        if obj.court and obj.court.court_fee_hrs and obj.court.tax:
-            tax = Decimal(str(obj.court.court_fee_hrs)) * Decimal(str(obj.court.tax)) / Decimal('100')
+        """Calculate tax as percentage of total price based on duration."""
+        total_price = self.get_total_price_based_on_duration(obj)
+        if obj.court and obj.court.tax:
+            tax = total_price * Decimal(str(obj.court.tax)) / Decimal('100')
             return tax.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
         return Decimal('0.00')
 
     def get_cc_fees(self, obj):
-        """Calculate cc_fees as percentage of court_fee_hrs"""
-        if obj.court and obj.court.court_fee_hrs and obj.court.cc_fees:
-            cc = Decimal(str(obj.court.court_fee_hrs)) * Decimal(str(obj.court.cc_fees)) / Decimal('100')
+        """Calculate cc fees as percentage of total price based on duration."""
+        total_price = self.get_total_price_based_on_duration(obj)
+        if obj.court and obj.court.cc_fees:
+            cc = total_price * Decimal(str(obj.court.cc_fees)) / Decimal('100')
             return cc.quantize(Decimal('0.01'), rounding=ROUND_DOWN)
-        return Decimal('0.00')    
+        return Decimal('0.00')   
 
     # def get_tax(self, obj):
     #     """Calculate tax as percentage of total_price using court.tax without rounding"""
