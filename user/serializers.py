@@ -274,7 +274,7 @@ class CourtBookingSerializer(serializers.ModelSerializer):
             'booking_id', 'user', 'court', 'court_id', 'booking_date','book_for_four_weeks','total_price',
             'start_time', 'end_time', 'duration_time', 'status',
             'created_at', 'updated_at','on_amount','summary','amount',
-         'tax', 'cc_fees','address'
+         'tax', 'cc_fees','address','full_cc_fees','full_tax'
         ]
        
    
@@ -356,24 +356,24 @@ class CourtBookingSerializer(serializers.ModelSerializer):
         return "0.00 (0%)"  
     
         
-    # def get_cc_fees(self, obj):
-    #     try:
-    #         base_price = float(obj.total_price or 0)
-    #         cc_percent = float(obj.court.cc_fees or 0)
-    #         cc_amount = round(base_price * cc_percent / 100, 2)
-    #         return f"{cc_amount:.2f} ({cc_percent:.2f}%)"
-    #     except:
-    #         return "0.00 (0%)"
+    def get_full_cc_fees(self, obj):
+        try:
+            base_price = float(obj.total_price or 0)
+            cc_percent = float(obj.court.cc_fees or 0)
+            cc_amount = round(base_price * cc_percent / 100, 2)
+            return f"{cc_amount:.2f} ({cc_percent:.2f}%)"
+        except:
+            return "0.00 (0%)"
 
 
-    # def get_tax(self, obj):
-    #     try:
-    #         base_price = float(obj.total_price or 0)
-    #         tax_percent = float(obj.court.tax or 0)
-    #         tax_amount = round(base_price * tax_percent / 100, 2)
-    #         return f"{tax_amount:.2f} ({tax_percent:.2f}%)"
-    #     except:
-    #         return "0.00 (0%)"
+    def get_full_tax(self, obj):
+        try:
+            base_price = float(obj.total_price or 0)
+            tax_percent = float(obj.court.tax or 0)
+            tax_amount = round(base_price * tax_percent / 100, 2)
+            return f"{tax_amount:.2f} ({tax_percent:.2f}%)"
+        except:
+            return "0.00 (0%)"
 
 
     
