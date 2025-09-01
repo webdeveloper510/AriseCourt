@@ -267,8 +267,8 @@ class CourtBookingSerializer(serializers.ModelSerializer):
     cc_fees = serializers.SerializerMethodField()
     address = serializers.SerializerMethodField()
     summary = serializers.SerializerMethodField()
-    # full_cc_fees = serializers.SerializerMethodField()
-    # full_tax = serializers.SerializerMethodField() 
+    full_cc_fees = serializers.SerializerMethodField()
+    full_tax = serializers.SerializerMethodField() 
 
     class Meta:
         model = CourtBooking
