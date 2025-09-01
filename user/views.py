@@ -800,42 +800,173 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
 
+    # def create(self, request, *args, **kwargs):
+    #     data = request.data.copy()
+    #     court_id = data.get('court') or data.get('court_id')
+    #     booking_date = data.get('booking_date')
+    #     start = data.get('start_time')
+    #     end = data.get('end_time')
+    #     book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
+
+    #     # Validate start and end time
+    #     try:
+    #         start_time = datetime.strptime(start, "%H:%M:%S").time()
+    #         end_time = datetime.strptime(end, "%H:%M:%S").time()
+
+    #         if end_time <= start_time:
+    #             return Response(
+    #                 {"message": "End time must be after start time.", 'code': '400'},
+    #                 status=status.HTTP_200_OK
+    #             )
+
+    #         duration_timedelta = datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
+    #         duration = str(duration_timedelta)
+    #         data['duration_time'] = duration
+
+    #     except:
+    #         return Response(
+    #             {"message": "Invalid time format. Use HH:MM:SS", 'code': '400'},
+    #             status=status.HTTP_200_OK
+    #         )
+
+    #     # Check if already booked
+    #     if CourtBooking.objects.filter(
+    #         court_id=court_id,
+    #         booking_date=booking_date,
+    #         start_time__lt=start_time,
+    #         end_time__gt=end_time
+    #     ).filter(
+    #         Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+    #     ).exists():
+    #         return Response(
+    #             {
+    #                 "message": "Court is already booked for the selected time.",
+    #                 "code": "400"
+    #             },
+    #             status=status.HTTP_409_CONFLICT
+    #         )
+
+    #     # Calculate on_amount (total + tax + cc_fees)
+    #     try:
+    #         on_amount = float(data.get('on_amount') or 0)
+    #         court = Court.objects.get(id=court_id)
+    #         tax_percent = float(court.tax or 0)
+    #         cc_fees_percent = float(court.cc_fees or 0)
+
+    #         tax_amount = on_amount * (tax_percent / 100)
+    #         cc_fee_amount = on_amount * (cc_fees_percent / 100)
+    #         total = on_amount + tax_amount + cc_fee_amount
+
+    #         data['on_amount'] = "{:.2f}".format(total)  # force 2 decimal places
+    #         data['total'] = total
+
+    #     except:
+    #         return Response(
+    #             {"message": "Failed to calculate on_amount", 'code': '400'},
+    #             status=status.HTTP_200_OK
+    #         )
+
+    #     # Save booking
+    #     serializer = self.get_serializer(data=data)
+    #     serializer.is_valid(raise_exception=True)
+    #     user = request.user
+    #     created_bookings = []
+
+    #     if user.user_type in [0, 1]:
+    #         main_booking = serializer.save(user=user, status='pending')
+    #     else:
+    #         main_booking = serializer.save(user=user)
+
+    #     MailUtils.booking_confirmation_mail(user, main_booking)
+    #     created_bookings.append(main_booking)
+
+    #     # Repeat for next 3 weeks (if book_for_four_weeks is true)
+    #     if book_for_four_weeks:
+    #         original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
+    #         for i in range(1, 4):
+    #             next_date = original_date + timedelta(weeks=i)
+
+    #             if not CourtBooking.objects.filter(
+    #                 court_id=court_id,
+    #                 booking_date=next_date,
+    #                 start_time__lt=start_time,
+    #                 end_time__gt=end_time
+    #             ).filter(
+    #                 Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
+    #             ).exists():
+    #                 new_booking = CourtBooking.objects.create(
+    #                     user=user,
+    #                     court_id=court_id,
+    #                     booking_date=next_date,
+    #                     start_time=start_time,
+    #                     end_time=end_time,
+    #                     duration_time=duration,
+    #                     book_for_four_weeks=True,
+    #                     on_amount=str(total),
+    #                     total_price=data.get('total_price'),
+    #                     parent_booking=str(main_booking.id),  # Save main booking ID here
+    #                     status=main_booking.status
+    #                 )
+    #                 created_bookings.append(new_booking)
+
+    #     response_serializer = self.get_serializer(created_bookings, many=True)
+    #     return Response(
+    #         {
+    #             "message": "Bookings created successfully.",
+    #             "status_code": status.HTTP_201_CREATED,
+    #             "data": response_serializer.data,
+    #         },
+    #         status=status.HTTP_201_CREATED
+    #     )
+
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
         court_id = data.get('court') or data.get('court_id')
         booking_date = data.get('booking_date')
-        # start = data.get('start_time')
-        # end = data.get('end_time')
-        start_time = data.get('start_time')
-        end_time = data.get('end_time')
+        start = data.get('start_time')
+        end = data.get('end_time')
         book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
 
-        # try:
-        #     start_time = datetime.strptime(start, "%H:%M:%S").time()
-        #     end_time = datetime.strptime(end, "%H:%M:%S").time()
+        try:
+            start_time = datetime.strptime(start, "%H:%M:%S").time()
+            end_time = datetime.strptime(end, "%H:%M:%S").time()
 
-        #     if end_time <= start_time:
-        #         return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
+            start_combined = datetime.combine(date.min, start_time)
+            end_combined = datetime.combine(date.min, end_time)
 
-        #     duration_timedelta = datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
-        #     duration = str(duration_timedelta)
-        #     data['duration_time'] = duration
+            if end_combined <= start_combined:
+                # Overnight booking → move end to next day
+                end_combined += timedelta(days=1)
 
-        # except:
-        #     return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
+            duration_timedelta = end_combined - start_combined
+            duration = str(duration_timedelta)   # store as string
+            data['duration_time'] = duration
 
-        if CourtBooking.objects.filter(
+        except:
+            return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
+
+        # Conflict check for requested booking
+        existing_bookings = CourtBooking.objects.filter(
             court_id=court_id,
-            booking_date=booking_date,
-            start_time__lt=start_time,
-            end_time__gt=end_time
+            booking_date=booking_date
         ).filter(
             Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-        ).exists():
-            return Response({
-                "message": "Court is already booked for the selected time.",
-                "code": "400"
-            }, status=status.HTTP_409_CONFLICT)
+        )
+
+        for booking in existing_bookings:
+            existing_start = datetime.combine(date.min, booking.start_time)
+            existing_end = datetime.combine(date.min, booking.end_time)
+
+            if existing_end <= existing_start:
+                # Overnight booking in DB
+                existing_end += timedelta(days=1)
+
+            # Compare with requested slot
+            if not (end_combined <= existing_start or start_combined >= existing_end):
+                return Response({
+                    "message": "Court is already booked for the selected time.",
+                    "code": "400"
+                }, status=status.HTTP_409_CONFLICT)
 
         #  Calculate on_amount (total + tax + cc_fees)
         try:
@@ -846,7 +977,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             tax_amount = on_amount * (tax_percent / 100)
             cc_fee_amount = on_amount * (cc_fees_percent / 100)
             total = on_amount + tax_amount + cc_fee_amount
-            # data['on_amount'] = str(total)  #  Save to DB
             data['on_amount'] = "{:.2f}".format(total)  # force 2 decimal places
             data['total'] = total
         except:
@@ -865,20 +995,34 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         MailUtils.booking_confirmation_mail(user, main_booking)
         created_bookings.append(main_booking)
 
-        #  Repeat for next 3 weeks (if book_for_four_weeks is true)
+        # Repeat for next 3 weeks (if book_for_four_weeks is true)
         if book_for_four_weeks:
             original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
             for i in range(1, 4):
                 next_date = original_date + timedelta(weeks=i)
 
-                if not CourtBooking.objects.filter(
+                # Conflict check for each future week
+                existing_bookings = CourtBooking.objects.filter(
                     court_id=court_id,
-                    booking_date=next_date,
-                    start_time__lt=start_time,
-                    end_time__gt=end_time
+                    booking_date=next_date
                 ).filter(
                     Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-                ).exists():
+                )
+
+                conflict_found = False
+                for booking in existing_bookings:
+                    existing_start = datetime.combine(date.min, booking.start_time)
+                    existing_end = datetime.combine(date.min, booking.end_time)
+
+                    if existing_end <= existing_start:
+                        # Overnight booking in DB
+                        existing_end += timedelta(days=1)
+
+                    if not (end_combined <= existing_start or start_combined >= existing_end):
+                        conflict_found = True
+                        break
+
+                if not conflict_found:
                     new_booking = CourtBooking.objects.create(
                         user=user,
                         court_id=court_id,
@@ -893,7 +1037,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
                         status=main_booking.status
                     )
                     created_bookings.append(new_booking)
-        
+
         response_serializer = self.get_serializer(created_bookings, many=True)
         return Response({
             "message": "Bookings created successfully.",
