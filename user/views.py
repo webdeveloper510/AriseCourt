@@ -804,23 +804,25 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         data = request.data.copy()
         court_id = data.get('court') or data.get('court_id')
         booking_date = data.get('booking_date')
-        start = data.get('start_time')
-        end = data.get('end_time')
+        # start = data.get('start_time')
+        # end = data.get('end_time')
+        start_time = data.get('start_time')
+        end_time = data.get('end_time')
         book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
 
-        try:
-            start_time = datetime.strptime(start, "%H:%M:%S").time()
-            end_time = datetime.strptime(end, "%H:%M:%S").time()
+        # try:
+        #     start_time = datetime.strptime(start, "%H:%M:%S").time()
+        #     end_time = datetime.strptime(end, "%H:%M:%S").time()
 
-            if end_time <= start_time:
-                return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
+        #     if end_time <= start_time:
+        #         return Response({"message": "End time must be after start time.", 'code': '400'}, status=status.HTTP_200_OK)
 
-            duration_timedelta = datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
-            duration = str(duration_timedelta)
-            data['duration_time'] = duration
+        #     duration_timedelta = datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
+        #     duration = str(duration_timedelta)
+        #     data['duration_time'] = duration
 
-        except:
-            return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
+        # except:
+        #     return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
 
         if CourtBooking.objects.filter(
             court_id=court_id,
@@ -1239,7 +1241,7 @@ class CourtAvailabilityView(APIView):
             repeating_bookings = [
                 b for b in repeating_bookings if b.booking_date.weekday() == weekday
             ]
-
+ 
             combined_bookings = list(same_day_bookings) + list(repeating_bookings)
 
             if start_time_obj and end_time_obj and not is_booked:
