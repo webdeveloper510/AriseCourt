@@ -2235,14 +2235,14 @@ class BookingListView(APIView):
 
         # 1. Get bookings based on user type
         if user.user_type == 0:  # SuperAdmin
-            bookings = CourtBooking.objects.select_related('user', 'court__location_id')
+            bookings = CourtBooking.objects.select_related('user', 'court__location_id').order_by("-booking_date")
         elif user.user_type == 1:  # Admin
             assigned_locations = user.locations.all()
             bookings = CourtBooking.objects.filter(
                 Q(court__location_id__in=assigned_locations) | Q(user=user) 
-            ).select_related('user', 'court__location_id')
+            ).select_related('user', 'court__location_id').order_by("-booking_date")
         else:
-            bookings = CourtBooking.objects.none()
+            bookings = CourtBooking.objects.none().order_by("-booking_date")
 
         # Show only successful payments
         bookings = bookings.filter(status="confirmed")

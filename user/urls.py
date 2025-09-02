@@ -16,6 +16,10 @@ router.register(r'contact-us', ContactUsViewSet, basename='contactus')
 router.register(r'all_locations', LocationListView, basename='all-locations')
 
 
+
+
+
+
 urlpatterns = [
     path('', include(router.urls)),
     path('register/', UserCreateView.as_view(), name="register"),
