@@ -707,6 +707,118 @@ class AdminViewSet(viewsets.ModelViewSet):
     
 
 
+
+class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
+    queryset = CourtBooking.objects.all()
+    serializer_class = CourtBookingSerializer
+    # permission_classes = [IsAuthenticated]
+    pagination_class = LargeResultsSetPagination
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['user__first_name','user__last_name','user__email','user__phone','court__location_id__name','court__location_id__city','court__location_id__state','court__location_id__country','court__location_id__description','court__location_id__address_1','court__location_id__address_2','court__location_id__address_3','court__location_id__address_4']
+
+    def list(self, request, *args, **kwargs):
+        today = date.today()
+        booking_type = request.query_params.get('type') 
+        search = request.query_params.get('search')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        location_address = request.query_params.get('location')
+        
+        bookings = CourtBooking.objects.filter(
+                status='confirmed'
+            )
+
+        # Get bookings based on user type
+        # if request.user.is_superuser:
+        #     bookings = CourtBooking.objects.filter(
+        #         status='confirmed'
+        #     )
+        # else:
+        #     bookings = CourtBooking.objects.filter(
+        #         user=request.user,
+        #         status='confirmed'
+        #     )
+
+
+        # Annotate a combined address field
+        bookings = bookings.annotate(
+            full_address=Concat(
+                'court__location_id__address_1', Value(' '),
+                'court__location_id__address_2', Value(' '),
+                'court__location_id__address_3', Value(' '),
+                'court__location_id__address_4', output_field=CharField()
+            )
+        )
+
+        
+        bookings = bookings.annotate(
+            location_address=Concat(
+                'court__location_id__address_1', Value(' '),
+                'court__location_id__address_2', Value(' '),
+                'court__location_id__address_3', Value(' '),
+                'court__location_id__address_4', Value(' '),
+                'court__location_id__name',
+                output_field=CharField()
+            )
+        )
+
+        if location_address:
+            bookings = bookings.filter(
+                location_address__icontains=location_address.strip()
+            )
+
+        # Filter by date range
+        if start_date and end_date:
+            start = parse_date(start_date)
+            end = parse_date(end_date)
+            if start and end:
+                bookings = bookings.filter(booking_date__range=(start, end))
+
+        # Filter by search
+        if search:
+            bookings = bookings.filter(
+                Q(user__first_name__icontains=search) |
+                Q(user__last_name__icontains=search) |
+                Q(user__email__icontains=search) |
+                Q(user__phone__icontains=search) |
+                Q(booking_date__icontains=search) |
+                Q(court__location_id__name__icontains=search) |
+                Q(court__location_id__city__icontains=search) |
+                Q(court__location_id__state__icontains=search) |
+                Q(court__location_id__country__icontains=search) |
+                Q(court__location_id__description__icontains=search) |
+                Q(full_address__icontains=search)  #  Search in combined address
+            )
+ 
+        # Filter by booking type (past/upcoming)
+        if booking_type == 'past':
+            bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
+        else:
+            bookings = bookings.filter(booking_date__gte=today).order_by('-booking_date')
+
+        # Paginate and return response
+        page = self.paginate_queryset(bookings)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(bookings, many=True)
+        return Response({'bookings': serializer.data})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 class CourtBookingViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
@@ -800,124 +912,6 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
 
-    # def create(self, request, *args, **kwargs):
-    #     data = request.data.copy()
-    #     court_id = data.get('court') or data.get('court_id')
-    #     booking_date = data.get('booking_date')
-    #     start = data.get('start_time')
-    #     end = data.get('end_time')
-    #     book_for_four_weeks = data.get('book_for_four_weeks') in [True, 'true', 'True', 1, '1']
-
-    #     # Validate start and end time
-    #     try:
-    #         start_time = datetime.strptime(start, "%H:%M:%S").time()
-    #         end_time = datetime.strptime(end, "%H:%M:%S").time()
-
-    #         if end_time <= start_time:
-    #             return Response(
-    #                 {"message": "End time must be after start time.", 'code': '400'},
-    #                 status=status.HTTP_200_OK
-    #             )
-
-    #         duration_timedelta = datetime.combine(date.min, end_time) - datetime.combine(date.min, start_time)
-    #         duration = str(duration_timedelta)
-    #         data['duration_time'] = duration
-
-    #     except:
-    #         return Response(
-    #             {"message": "Invalid time format. Use HH:MM:SS", 'code': '400'},
-    #             status=status.HTTP_200_OK
-    #         )
-
-    #     # Check if already booked
-    #     if CourtBooking.objects.filter(
-    #         court_id=court_id,
-    #         booking_date=booking_date,
-    #         start_time__lt=start_time,
-    #         end_time__gt=end_time
-    #     ).filter(
-    #         Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-    #     ).exists():
-    #         return Response(
-    #             {
-    #                 "message": "Court is already booked for the selected time.",
-    #                 "code": "400"
-    #             },
-    #             status=status.HTTP_409_CONFLICT
-    #         )
-
-    #     # Calculate on_amount (total + tax + cc_fees)
-    #     try:
-    #         on_amount = float(data.get('on_amount') or 0)
-    #         court = Court.objects.get(id=court_id)
-    #         tax_percent = float(court.tax or 0)
-    #         cc_fees_percent = float(court.cc_fees or 0)
-
-    #         tax_amount = on_amount * (tax_percent / 100)
-    #         cc_fee_amount = on_amount * (cc_fees_percent / 100)
-    #         total = on_amount + tax_amount + cc_fee_amount
-
-    #         data['on_amount'] = "{:.2f}".format(total)  # force 2 decimal places
-    #         data['total'] = total
-
-    #     except:
-    #         return Response(
-    #             {"message": "Failed to calculate on_amount", 'code': '400'},
-    #             status=status.HTTP_200_OK
-    #         )
-
-    #     # Save booking
-    #     serializer = self.get_serializer(data=data)
-    #     serializer.is_valid(raise_exception=True)
-    #     user = request.user
-    #     created_bookings = []
-
-    #     if user.user_type in [0, 1]:
-    #         main_booking = serializer.save(user=user, status='pending')
-    #     else:
-    #         main_booking = serializer.save(user=user)
-
-    #     MailUtils.booking_confirmation_mail(user, main_booking)
-    #     created_bookings.append(main_booking)
-
-    #     # Repeat for next 3 weeks (if book_for_four_weeks is true)
-    #     if book_for_four_weeks:
-    #         original_date = datetime.strptime(booking_date, "%Y-%m-%d").date()
-    #         for i in range(1, 4):
-    #             next_date = original_date + timedelta(weeks=i)
-
-    #             if not CourtBooking.objects.filter(
-    #                 court_id=court_id,
-    #                 booking_date=next_date,
-    #                 start_time__lt=start_time,
-    #                 end_time__gt=end_time
-    #             ).filter(
-    #                 Q(status='confirmed') | Q(status='pending', booking_payments__payment_status='successful')
-    #             ).exists():
-    #                 new_booking = CourtBooking.objects.create(
-    #                     user=user,
-    #                     court_id=court_id,
-    #                     booking_date=next_date,
-    #                     start_time=start_time,
-    #                     end_time=end_time,
-    #                     duration_time=duration,
-    #                     book_for_four_weeks=True,
-    #                     on_amount=str(total),
-    #                     total_price=data.get('total_price'),
-    #                     parent_booking=str(main_booking.id),  # Save main booking ID here
-    #                     status=main_booking.status
-    #                 )
-    #                 created_bookings.append(new_booking)
-
-    #     response_serializer = self.get_serializer(created_bookings, many=True)
-    #     return Response(
-    #         {
-    #             "message": "Bookings created successfully.",
-    #             "status_code": status.HTTP_201_CREATED,
-    #             "data": response_serializer.data,
-    #         },
-    #         status=status.HTTP_201_CREATED
-    #     )
 
     def create(self, request, *args, **kwargs):
         data = request.data.copy()
