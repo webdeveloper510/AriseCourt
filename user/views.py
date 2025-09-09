@@ -708,6 +708,7 @@ class AdminViewSet(viewsets.ModelViewSet):
 
 
 
+
 class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
@@ -717,29 +718,16 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
     search_fields = ['user__first_name','user__last_name','user__email','user__phone','court__location_id__name','court__location_id__city','court__location_id__state','court__location_id__country','court__location_id__description','court__location_id__address_1','court__location_id__address_2','court__location_id__address_3','court__location_id__address_4']
 
     def list(self, request, *args, **kwargs):
-        today = date.today()
+        # today = date.today()
+        now = timezone.now()
         booking_type = request.query_params.get('type') 
         search = request.query_params.get('search')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         location_address = request.query_params.get('location')
-        
         bookings = CourtBooking.objects.filter(
                 status='confirmed'
             )
-
-        # Get bookings based on user type
-        # if request.user.is_superuser:
-        #     bookings = CourtBooking.objects.filter(
-        #         status='confirmed'
-        #     )
-        # else:
-        #     bookings = CourtBooking.objects.filter(
-        #         user=request.user,
-        #         status='confirmed'
-        #     )
-
-
         # Annotate a combined address field
         bookings = bookings.annotate(
             full_address=Concat(
@@ -749,8 +737,6 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
                 'court__location_id__address_4', output_field=CharField()
             )
         )
-
-        
         bookings = bookings.annotate(
             location_address=Concat(
                 'court__location_id__address_1', Value(' '),
@@ -761,7 +747,6 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
                 output_field=CharField()
             )
         )
-
         if location_address:
             bookings = bookings.filter(
                 location_address__icontains=location_address.strip()
@@ -792,9 +777,9 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
  
         # Filter by booking type (past/upcoming)
         if booking_type == 'past':
-            bookings = bookings.filter(booking_date__lt=today).order_by('-booking_date')
+            bookings = bookings.filter(booking_date__lt=now).order_by('-booking_date')
         else:
-            bookings = bookings.filter(booking_date__gte=today).order_by('-booking_date')
+            bookings = bookings.filter(booking_date__gte=now).order_by('-booking_date')
 
         # Paginate and return response
         page = self.paginate_queryset(bookings)
@@ -2222,7 +2207,7 @@ class BookingListView(APIView):
     def get(self, request):
         user = request.user
         search = request.query_params.get('search', '')
-        location = request.query_params.get('location', '')  # new param for address search
+        location = request.query_params.get('location', '')
         export = request.query_params.get('export', '')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
