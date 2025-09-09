@@ -709,48 +709,51 @@ class AdminViewSet(viewsets.ModelViewSet):
 
 
 
+
 class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
-    # permission_classes = [IsAuthenticated]
     pagination_class = LargeResultsSetPagination
     filter_backends = [filters.SearchFilter]
-    search_fields = ['user__first_name','user__last_name','user__email','user__phone','court__location_id__name','court__location_id__city','court__location_id__state','court__location_id__country','court__location_id__description','court__location_id__address_1','court__location_id__address_2','court__location_id__address_3','court__location_id__address_4']
+    search_fields = [
+        'user__first_name','user__last_name','user__email','user__phone',
+        'court__location_id__name','court__location_id__city',
+        'court__location_id__state','court__location_id__country',
+        'court__location_id__description','court__location_id__address_1',
+        'court__location_id__address_2','court__location_id__address_3',
+        'court__location_id__address_4'
+    ]
 
     def list(self, request, *args, **kwargs):
-        # today = date.today()
-        now = timezone.now()
+        now = timezone.now()   # current datetime
         booking_type = request.query_params.get('type') 
         search = request.query_params.get('search')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
         location_address = request.query_params.get('location')
-        bookings = CourtBooking.objects.filter(
-                status='confirmed'
-            )
-        # Annotate a combined address field
+
+        bookings = CourtBooking.objects.filter(status='confirmed')
+
+        # Annotate addresses for search/filter
         bookings = bookings.annotate(
             full_address=Concat(
                 'court__location_id__address_1', Value(' '),
                 'court__location_id__address_2', Value(' '),
                 'court__location_id__address_3', Value(' '),
                 'court__location_id__address_4', output_field=CharField()
-            )
-        )
-        bookings = bookings.annotate(
+            ),
             location_address=Concat(
                 'court__location_id__address_1', Value(' '),
                 'court__location_id__address_2', Value(' '),
                 'court__location_id__address_3', Value(' '),
                 'court__location_id__address_4', Value(' '),
-                'court__location_id__name',
-                output_field=CharField()
+                'court__location_id__name', output_field=CharField()
             )
         )
+
+        # Filter by location
         if location_address:
-            bookings = bookings.filter(
-                location_address__icontains=location_address.strip()
-            )
+            bookings = bookings.filter(location_address__icontains=location_address.strip())
 
         # Filter by date range
         if start_date and end_date:
@@ -772,23 +775,120 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
                 Q(court__location_id__state__icontains=search) |
                 Q(court__location_id__country__icontains=search) |
                 Q(court__location_id__description__icontains=search) |
-                Q(full_address__icontains=search)  #  Search in combined address
+                Q(full_address__icontains=search)
             )
- 
-        # Filter by booking type (past/upcoming)
-        if booking_type == 'past':
-            bookings = bookings.filter(booking_date__lt=now).order_by('-booking_date')
-        else:
-            bookings = bookings.filter(booking_date__gte=now).order_by('-booking_date')
+
+        # Past / Upcoming filter (include time check)
+        filtered_bookings = []
+        for b in bookings:
+            booking_start = datetime.combine(b.booking_date, b.start_time)
+            booking_end = datetime.combine(b.booking_date, b.end_time)
+
+            if booking_type == 'past':
+                if booking_end < now:
+                    filtered_bookings.append(b)
+            else:  # upcoming
+                if booking_start >= now:
+                    filtered_bookings.append(b)
+
+        # Sort results (latest first)
+        filtered_bookings = sorted(
+            filtered_bookings,
+            key=lambda x: datetime.combine(x.booking_date, x.start_time),
+            reverse=True
+        )
 
         # Paginate and return response
-        page = self.paginate_queryset(bookings)
+        page = self.paginate_queryset(filtered_bookings)
         if page is not None:
             serializer = self.get_serializer(page, many=True)
             return self.get_paginated_response(serializer.data)
 
-        serializer = self.get_serializer(bookings, many=True)
+        serializer = self.get_serializer(filtered_bookings, many=True)
         return Response({'bookings': serializer.data})
+    
+    
+
+# class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
+#     queryset = CourtBooking.objects.all()
+#     serializer_class = CourtBookingSerializer
+#     # permission_classes = [IsAuthenticated]
+#     pagination_class = LargeResultsSetPagination
+#     filter_backends = [filters.SearchFilter]
+#     search_fields = ['user__first_name','user__last_name','user__email','user__phone','court__location_id__name','court__location_id__city','court__location_id__state','court__location_id__country','court__location_id__description','court__location_id__address_1','court__location_id__address_2','court__location_id__address_3','court__location_id__address_4']
+
+#     def list(self, request, *args, **kwargs):
+#         # today = date.today()
+#         now = timezone.now()
+#         booking_type = request.query_params.get('type') 
+#         search = request.query_params.get('search')
+#         start_date = request.query_params.get('start_date')
+#         end_date = request.query_params.get('end_date')
+#         location_address = request.query_params.get('location')
+#         bookings = CourtBooking.objects.filter(
+#                 status='confirmed'
+#             )
+#         # Annotate a combined address field
+#         bookings = bookings.annotate(
+#             full_address=Concat(
+#                 'court__location_id__address_1', Value(' '),
+#                 'court__location_id__address_2', Value(' '),
+#                 'court__location_id__address_3', Value(' '),
+#                 'court__location_id__address_4', output_field=CharField()
+#             )
+#         )
+#         bookings = bookings.annotate(
+#             location_address=Concat(
+#                 'court__location_id__address_1', Value(' '),
+#                 'court__location_id__address_2', Value(' '),
+#                 'court__location_id__address_3', Value(' '),
+#                 'court__location_id__address_4', Value(' '),
+#                 'court__location_id__name',
+#                 output_field=CharField()
+#             )
+#         )
+#         if location_address:
+#             bookings = bookings.filter(
+#                 location_address__icontains=location_address.strip()
+#             )
+
+#         # Filter by date range
+#         if start_date and end_date:
+#             start = parse_date(start_date)
+#             end = parse_date(end_date)
+#             if start and end:
+#                 bookings = bookings.filter(booking_date__range=(start, end))
+
+#         # Filter by search
+#         if search:
+#             bookings = bookings.filter(
+#                 Q(user__first_name__icontains=search) |
+#                 Q(user__last_name__icontains=search) |
+#                 Q(user__email__icontains=search) |
+#                 Q(user__phone__icontains=search) |
+#                 Q(booking_date__icontains=search) |
+#                 Q(court__location_id__name__icontains=search) |
+#                 Q(court__location_id__city__icontains=search) |
+#                 Q(court__location_id__state__icontains=search) |
+#                 Q(court__location_id__country__icontains=search) |
+#                 Q(court__location_id__description__icontains=search) |
+#                 Q(full_address__icontains=search)  #  Search in combined address
+#             )
+ 
+#         # Filter by booking type (past/upcoming)
+#         if booking_type == 'past':
+#             bookings = bookings.filter(booking_date__lt=now).order_by('-booking_date')
+#         else:
+#             bookings = bookings.filter(booking_date__gte=now).order_by('-booking_date')
+
+#         # Paginate and return response
+#         page = self.paginate_queryset(bookings)
+#         if page is not None:
+#             serializer = self.get_serializer(page, many=True)
+#             return self.get_paginated_response(serializer.data)
+
+#         serializer = self.get_serializer(bookings, many=True)
+#         return Response({'bookings': serializer.data})
 
 
 
