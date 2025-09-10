@@ -1064,8 +1064,8 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         else:
             main_booking = serializer.save(user=user)
 
-        MailUtils.booking_confirmation_mail(user, main_booking)
-        created_bookings.append(main_booking)
+        # MailUtils.booking_confirmation_mail(user, main_booking)
+        # created_bookings.append(main_booking)
 
         # Repeat for next 3 weeks (if book_for_four_weeks is true)
         if book_for_four_weeks:
@@ -1640,6 +1640,12 @@ def stripe_webhook(request):
             if booking.status != "confirmed":
                 booking.status = "confirmed"
                 booking.save()
+                
+                try:
+                    MailUtils.booking_confirmation_mail(user, booking)
+                except Exception as e:
+                    # Log the error but don’t break webhook
+                    print(f"Error sending booking confirmation email: {e}")
         
         except CourtBooking.DoesNotExist:
             pass  # Optional: log this
