@@ -14,10 +14,7 @@ router.register(r'create_admin', AdminViewSet, basename='create-Admin')
 router.register(r'court-bookings', CourtBookingViewSet, basename='booking')
 router.register(r'contact-us', ContactUsViewSet, basename='contactus')
 router.register(r'all_locations', LocationListView, basename='all-locations')
-
 router.register(r'get_courtbookings', CourtBookingWithoutTokenViewSet, basename='get-courtbookings')
-
-
 
 
 

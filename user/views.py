@@ -161,65 +161,6 @@ class UserDeleteView(APIView):
 
     
 
-# class UserLoginView(APIView):
-#     def post(self, request):
-#         serializer = UserLoginSerializer(data=request.data)
-#         serializer.is_valid(raise_exception=True)
-
-#         email = serializer.validated_data['email']
-#         password = serializer.validated_data['password']
-#         location_id = serializer.validated_data.get('location')
-
-#         user = authenticate(request, username=email, password=password)
-
-#         if user is not None:
-#             #  Location logic for Admins (user_type == 1)
-#             if user.user_type == 1:
-#                 if location_id:  # Location was passed by admin
-#                     if not user.location or str(user.location.id) != str(location_id):
-#                         return Response({
-#                             'message': 'You are not assigned to this location. First please register for this location.',
-#                             'code': 400
-#                         }, status=status.HTTP_200_OK)
-
-#             #  Location logic for other users (user_type > 1)
-#             elif user.user_type > 1:
-#                 if not location_id:
-#                     return Response({
-#                         'message': 'Location is required.',
-#                         'code': 400
-#                     }, status=status.HTTP_200_OK)
-
-#                 if not user.location or str(user.location.id) != str(location_id):
-#                     return Response({
-#                         'message': 'You are not assigned to this location. First please register for this location.',
-#                         'code': 400
-#                     }, status=status.HTTP_200_OK)
-
-#             # Email verification check
-#             if not user.is_verified:
-#                 return Response({
-#                     'message': 'Email not verified. Please verify your email before logging in.',
-#                     'status_code': status.HTTP_403_FORBIDDEN
-#                 }, status=status.HTTP_403_FORBIDDEN)
-
-#             #  Generate token and return user data
-#             token = get_tokens_for_user(user)
-#             user_data = UserLoginFieldsSerializer(user).data
-#             user_data['access_token'] = token['access']
-
-#             return Response({
-#                 'code': '200',
-#                 'message': 'Login Successfully',
-#                 'data': user_data
-#             }, status=status.HTTP_200_OK)
-
-#         #  Invalid credentials
-#         return Response({
-#             'message': 'Incorrect Username or Password',
-#             'code': "400"
-#         }, status=status.HTTP_200_OK)
-
 
 class UserLoginView(APIView):
     def post(self, request):
@@ -575,21 +516,6 @@ class AdminViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         location_id = request.data.get("location_id")
 
-        #  Use correct M2M lookup
-        # if location_id:
-        #     existing_admin = User.objects.filter(
-        #         user_type=1,
-        #         locations__id=location_id
-        #     ).exists()
-
-        #     if existing_admin:
-        #         location = Location.objects.filter(id=location_id, status=True).first()
-        #         if location:
-        #             return Response({
-        #                 "message": "This location is already assigned to another admin.",
-        #                 "code": 400
-        #             }, status=status.HTTP_200_OK)
-
         access_flag = request.data.get("access_flag", None)
 
         if access_flag is None:
@@ -705,88 +631,7 @@ class AdminViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return Response({"message": "Admin deleted successfully.","status_code": status.HTTP_200_OK}, status=status.HTTP_200_OK)
     
- 
 
-# class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
-#     queryset = CourtBooking.objects.all()
-#     serializer_class = CourtBookingSerializer
-#     # permission_classes = [IsAuthenticated]
-#     pagination_class = LargeResultsSetPagination
-#     filter_backends = [filters.SearchFilter]
-#     search_fields = ['user__first_name','user__last_name','user__email','user__phone','court__location_id__name','court__location_id__city','court__location_id__state','court__location_id__country','court__location_id__description','court__location_id__address_1','court__location_id__address_2','court__location_id__address_3','court__location_id__address_4']
-
-#     def list(self, request, *args, **kwargs):
-#         # today = date.today()
-#         now = timezone.now()
-#         booking_type = request.query_params.get('type') 
-#         search = request.query_params.get('search')
-#         start_date = request.query_params.get('start_date')
-#         end_date = request.query_params.get('end_date')
-#         location_address = request.query_params.get('location')
-#         bookings = CourtBooking.objects.filter(
-#                 status='confirmed'
-#             )
-#         # Annotate a combined address field
-#         bookings = bookings.annotate(
-#             full_address=Concat(
-#                 'court__location_id__address_1', Value(' '),
-#                 'court__location_id__address_2', Value(' '),
-#                 'court__location_id__address_3', Value(' '),
-#                 'court__location_id__address_4', output_field=CharField()
-#             )
-#         )
-#         bookings = bookings.annotate(
-#             location_address=Concat(
-#                 'court__location_id__address_1', Value(' '),
-#                 'court__location_id__address_2', Value(' '),
-#                 'court__location_id__address_3', Value(' '),
-#                 'court__location_id__address_4', Value(' '),
-#                 'court__location_id__name',
-#                 output_field=CharField()
-#             )
-#         )
-#         if location_address:
-#             bookings = bookings.filter(
-#                 location_address__icontains=location_address.strip()
-#             )
-
-#         # Filter by date range
-#         if start_date and end_date:
-#             start = parse_date(start_date)
-#             end = parse_date(end_date)
-#             if start and end:
-#                 bookings = bookings.filter(booking_date__range=(start, end))
-
-#         # Filter by search
-#         if search:
-#             bookings = bookings.filter(
-#                 Q(user__first_name__icontains=search) |
-#                 Q(user__last_name__icontains=search) |
-#                 Q(user__email__icontains=search) |
-#                 Q(user__phone__icontains=search) |
-#                 Q(booking_date__icontains=search) |
-#                 Q(court__location_id__name__icontains=search) |
-#                 Q(court__location_id__city__icontains=search) |
-#                 Q(court__location_id__state__icontains=search) |
-#                 Q(court__location_id__country__icontains=search) |
-#                 Q(court__location_id__description__icontains=search) |
-#                 Q(full_address__icontains=search)  #  Search in combined address
-#             )
- 
-#         # Filter by booking type (past/upcoming)
-#         if booking_type == 'past':
-#             bookings = bookings.filter(booking_date__lt=now).order_by('-booking_date')
-#         else:
-#             bookings = bookings.filter(booking_date__gte=now).order_by('-booking_date')
-
-#         # Paginate and return response
-#         page = self.paginate_queryset(bookings)
-#         if page is not None:
-#             serializer = self.get_serializer(page, many=True)
-#             return self.get_paginated_response(serializer.data)
-
-#         serializer = self.get_serializer(bookings, many=True)
-#         return Response({'bookings': serializer.data})
 
 
 from django.db.models import Q, F, Value, CharField, ExpressionWrapper, DateTimeField
@@ -885,12 +730,6 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(bookings, many=True)
         return Response({'bookings': serializer.data})
-
-
-
-
-
-
 
 
 
@@ -1119,17 +958,44 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
     
     
     def update(self, request, *args, **kwargs):
-        partial = kwargs.pop('partial', False)
+        partial = kwargs.pop('partial', True)
         instance = self.get_object()
-        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        old_status = instance.status  # save old status before update
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
+
+        # After saving, check if status changed to confirmed
+        booking = serializer.instance
+        if old_status != "confirmed" and booking.status == "confirmed":
+            try:
+                
+                MailUtils.booking_confirmation_mail(request.user, booking)
+            except Exception as e:
+                # Log error but don’t stop execution
+                print(f"Error sending booking confirmation email: {e}")
 
         return Response({
             "message": "Booking updated successfully.",
             "status_code": status.HTTP_200_OK,
             "data": serializer.data
         }, status=status.HTTP_200_OK)
+    
+    
+    
+    # def update(self, request, *args, **kwargs):
+    #     partial = kwargs.pop('partial', False)
+    #     instance = self.get_object()
+    #     serializer = self.get_serializer(instance, data=request.data, partial=True)
+    #     serializer.is_valid(raise_exception=True)
+    #     self.perform_update(serializer)
+
+    #     return Response({
+    #         "message": "Booking updated successfully.",
+    #         "status_code": status.HTTP_200_OK,
+    #         "data": serializer.data
+    #     }, status=status.HTTP_200_OK)
 
 
     def destroy(self, request, *args, **kwargs):
@@ -1284,125 +1150,6 @@ class ProfileView(APIView):
 
 
 
-# from user.utils import register_smtp_for_user
-# class ProfileView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-#     def put(self, request):
-#         user = request.user
-
-#         # Check if SMTP is being updated
-#         is_updating_smtp = request.data.get("EMAIL_HOST_USER") or request.data.get("EMAIL_HOST_PASSWORD")
-
-#         if is_updating_smtp:
-#             smtp_config = {
-#                 "EMAIL_HOST_USER": request.data.get("EMAIL_HOST_USER"),
-#                 "EMAIL_HOST_PASSWORD": request.data.get("EMAIL_HOST_PASSWORD"),
-#                 "EMAIL_HOST": request.data.get("EMAIL_HOST"),  # optional
-#                 "EMAIL_PORT": request.data.get("EMAIL_PORT"),  # optional
-#                 "EMAIL_USE_TLS": request.data.get("EMAIL_USE_TLS", True),
-#             }
-
-#             smtp_check = register_smtp_for_user(user, smtp_config)
-#             if not smtp_check["success"]:
-#                 return Response({
-#                     "code": "400",
-#                     "message": smtp_check["message"],
-#                 }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Now continue to update the rest of the profile fields
-#         serializer = UpdateProfileSerializer(user, data=request.data, partial=True)
-#         serializer.is_valid(raise_exception=True)
-#         serializer.save()
-
-#         return Response({
-#             "code": "200",
-#             "message": "Profile updated successfully",
-#             "data": serializer.data
-#         }, status=status.HTTP_200_OK)
-
-
-
-
-# class CourtAvailabilityView(APIView):
-
-#     def post(self, request, *args, **kwargs):
-#         location_id = request.data.get('location_id')
-#         booking_date = request.data.get('date')
-#         start_time = request.data.get('start_time')
-#         end_time = request.data.get('end_time')
-
-#         if not (location_id and booking_date):
-#             return Response({"error": "location_id and date are required."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Parse date and time
-#         try:
-#             date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
-#             if start_time and end_time:
-#                 start_time_obj = time.fromisoformat(start_time)
-#                 end_time_obj = time.fromisoformat(end_time)
-#             else:
-#                 start_time_obj = None
-#                 end_time_obj = None
-#         except ValueError:
-#             return Response({"error": "Invalid date or time format."}, status=status.HTTP_400_BAD_REQUEST)
-
-#         courts = Court.objects.filter(location_id=location_id)
-#         result = []
-
-#         for court in courts:
-#             # FIXED: Fetch bookings from ALL users, not just current user
-#             bookings = CourtBooking.objects.filter(
-#                 court=court,
-#                 status__in=['pending', 'confirmed']
-#             )
-
-#             # Filter 1: Normal same-day bookings
-#             same_day_bookings = bookings.filter(booking_date=date_obj)
-
-#             # Filter 2: Repeating bookings (booked for 6 months)
-#             weekday = date_obj.weekday()  # Monday=0 ... Sunday=6
-#             six_months_back = date_obj - timedelta(weeks=26)
-
-#             repeating_bookings = bookings.filter(
-#                 book_for_four_weeks=True,
-#                 booking_date__lte=date_obj,
-#                 booking_date__gte=six_months_back
-#             )
-
-#             repeating_bookings = [
-#                 b for b in repeating_bookings
-#                 if b.booking_date.weekday() == weekday
-#             ]
-
-#             # Combine all bookings to check time conflict
-#             combined_bookings = list(same_day_bookings) + list(repeating_bookings)
-
-#             is_booked = False
-#             if start_time_obj and end_time_obj:
-#                 for booking in combined_bookings:
-#                     if booking.start_time < end_time_obj and booking.end_time > start_time_obj:
-#                         # Optional debug
-#                         # print(f"Conflict with booking by user {booking.user_id}: {booking.start_time}-{booking.end_time}")
-#                         is_booked = True
-#                         break
-#             else:
-#                 is_booked = bool(combined_bookings)
-
-#             result.append({
-#                 "court_id": court.id,
-#                 "court_number": court.court_number,
-#                 "court_fee_hrs": court.court_fee_hrs,  
-#                 "start_time": court.start_time, 
-#                 "end_time": court.end_time, 
-#                 "is_booked": is_booked
-#             })
-
-#         return Response({
-#             "location_id": location_id,
-#             "date": booking_date,
-#             "courts": result
-#         }, status=status.HTTP_200_OK)
 
 class CourtAvailabilityView(APIView):
 
@@ -1525,74 +1272,6 @@ class CreatePaymentIntentView(APIView):
         except Exception as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
        
-    # def post(self, request):
-    #     try:
-    #         booking_id = request.data.get("booking_id")
-    #         booking = CourtBooking.objects.get(id=booking_id)
-    #         court = booking.court
-    #         total_price = booking.total_price
-    #         tax = court.tax                   
-    #         cc_fees = court.cc_fees 
-    #         fee_data = calculate_total_fee(total_price, tax, cc_fees)
-    #         total_amount = fee_data['total_amount']
-    #         total_price = int(total_amount * 100)
-            
-    #         # intent = stripe.PaymentIntent.create(
-    #         #     amount=total_price,
-    #         #     currency="usd",
-    #         #     payment_method_types=["card"],
-    #         #     metadata={
-    #         #         "booking_id": str(booking.id),
-    #         #         "court_id": str(court.id),
-    #         #     }
-    #         # )
-
-    #         #  Create Checkout Session (for redirect URL)
-    #         session = stripe.checkout.Session.create(
-    #             payment_method_types=["card"],
-    #             line_items=[
-    #                 {
-    #                     "price_data": {
-    #                         "currency": "usd",
-    #                         "product_data": {
-    #                             "name": f"Court Booking #{booking.id}",
-    #                         },
-    #                         "unit_amount": total_price,
-    #                     },
-    #                     "quantity": 1,
-    #                 }
-    #             ],
-    #             mode="payment",
-    #             metadata={
-    #                 "booking_id": str(booking.id),
-    #                 "court_id": str(court.id),
-    #             },
-    #             success_url="http://localhost:3000/payment/success?session_id={CHECKOUT_SESSION_ID}",
-    #             # success_url="http://localhost:3000/payment/success?payment_intent_id={intent.id}",
-    #             cancel_url="https://yourdomain.com/cancel",
-    #         )
-
-
-    #         # Save intent ID for reference
-    #         print("hhhhhhhhhhhhh",session.id)
-          
-
-    #         booking.stripe_payment_intent_id = session.id
-    #         booking.save()
-
-    #         return Response({
-    #             "client_secret": session.client_secret,
-    #             "checkout_url": session.url,
-    #             "amount_details": {
-    #                 "total": total_price
-    #             }
-    #         })
-
-    #     except CourtBooking.DoesNotExist:
-    #         return Response({"error": "Invalid booking ID"}, status=status.HTTP_404_NOT_FOUND)
-    #     except Exception as e:
-    #         return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
-
 
 
 @csrf_exempt
@@ -1691,117 +1370,6 @@ class PaymentSuccessAPIView(APIView):
         except Payment.DoesNotExist:
             return Response({"error": "Payment not found"}, status=404)
     
-    # def post(self, request):
-    #     payment_intent = request.data.get("payment_intent_id")
-    #     if not payment_intent:
-    #         return Response({"error": "PaymentIntent ID is required"}, status=400)
-
-    #     # Remove _secret part from PaymentIntent if present
-    #     payment_intent_id = payment_intent.split("_secret")[0]
-
-
-    #     try:
-    #         # Get the payment using the payment intent ID
-    #         payment = Payment.objects.get(stripe_payment_intent_id=payment_intent_id)
-
-    #         # Get the related booking
-    #         booking = payment.booking
-
-    #         # Mark booking as confirmed (not completed)
-    #         booking.status = 'confirmed'
-    #         booking.save()
-
-    #         #  Update correct field: payment_status
-    #         payment.payment_status = 'successful'
-    #         payment.save()
-
-    #         return Response({"success": True})
-
-    #     except Payment.DoesNotExist:
-    #         return Response({"error": "Payment not found"}, status=404)
-
-
-
-  
-# class LocationLoginView(APIView):
-    # def post(self, request):
-    #     email        = request.data.get("email")
-    #     password     = request.data.get("password")
-    #     court_id     = request.data.get("court_id")
-    #     location_id  = request.data.get("location_id")
-
-    #     if not (email and password and location_id):
-    #         return Response({"message": "Email, password, and location_id are required.", "code": 400}, status=200)
-
-    #     # Get user by email and location
-    #     try:
-    #         user = User.objects.get(email=email, locations__id=location_id)
-    #     except User.DoesNotExist:
-    #         return Response({"message": "Invalid email or location.", "code": 400}, status=200)
-
-    #     # Check password
-    #     if not check_password(password, user.password):
-    #         return Response({"message": "Incorrect password.", "code": 400}, status=200)
-
-    #     # Get court belonging to location
-    #     try:
-    #         court = Court.objects.get(id=court_id, location_id=location_id)
-    #     except Court.DoesNotExist:
-    #         return Response({"message": "Invalid court for this location.", "code": 400}, status=200)
-
-    #     # Set time slots logic
-    #     start_time = court.start_time or time(9, 0)
-    #     end_time = court.end_time or time(21, 0)
-
-    #     now = datetime.now()
-    #     if now.minute > 0:
-    #         now = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
-    #     else:
-    #         now = now.replace(minute=0, second=0, microsecond=0)
-
-    #     today = date.today()
-    #     bookings = CourtBooking.objects.filter(court=court, booking_date=today)
-
-    #     slots = []
-    #     for i in range(4):
-    #         slot_start = now + timedelta(hours=i)
-    #         slot_end = slot_start + timedelta(hours=1)
-
-    #         if slot_end.time() > end_time:
-    #             break
-
-    #         booked = None
-    #         for b in bookings:
-    #             b_start = datetime.combine(today, b.start_time)
-    #             b_end = datetime.combine(today, b.end_time)
-    #             if b_start <= slot_start < b_end:
-    #                 booked = b
-    #                 break
-
-    #         if booked:
-    #             slots.append({
-    #                 "code": i + 1,
-    #                 "court_id": court.id,
-    #                 "location_id": court.location_id.id,
-    #                 "court_number":court.court_number,
-    #                 "booking_date":bookings.booking_date,
-    #                 "status": "BOOKED",
-    #                 "user_name": booked.user.first_name,
-    #                 "start_time": booked.start_time.strftime("%H:%M"),
-    #                 "end_time": booked.end_time.strftime("%H:%M")
-    #             })
-    #         else:
-    #             slots.append({
-    #                 "code": i + 1,
-    #                 "court_id": court.id,
-    #                 "location_id": court.location_id.id,
-    #                 "status": "OPEN",
-    #                 "start_time": slot_start.strftime("%H:%M"),
-    #                 "end_time": slot_end.strftime("%H:%M")
-    #             })
-
-    #     return Response({"slots": slots, "location_id": court.location_id.id}, status=200)
-
 
 
 
@@ -1903,108 +1471,6 @@ class LocationLoginView(APIView):
 
 
 
-
-
-    # def post(self, request):
-    #     email = request.data.get("email", "").strip().lower()
-    #     password = request.data.get("password")
-    #     location_id = request.data.get("location_id")
-    #     court_id = request.data.get("court_id")
-
-    #     #  Validate required fields
-    #     if not (email and password and location_id and court_id):
-    #         return Response({
-    #             "message": "Email, password, location_id, and court_id are required.",
-    #             "code": 400
-    #         }, status=200)
-
-    #     try:
-    #         location_id = int(location_id)
-    #     except (TypeError, ValueError):
-    #         return Response({
-    #             "message": "Invalid location_id format.",
-    #             "code": 400
-    #         }, status=200)
-
-    #     try:
-    #         court_id = int(court_id)
-    #     except (TypeError, ValueError):
-    #         return Response({
-    #             "message": "Invalid court_id format.",
-    #             "code": 400
-    #         }, status=200)
-
-    #     # Use current time
-    #     now = datetime.now()
-    #     end_date = now + timedelta(days=7)
-
-    #     try:
-    #         user = User.objects.get(email__iexact=email, locations__id=location_id)
-    #     except User.DoesNotExist:
-    #         return Response({
-    #             "message": "Invalid email or location.",
-    #             "code": 400
-    #         }, status=200)
-
-    #     if not check_password(password, user.password):
-    #         return Response({
-    #             "message": "Incorrect password.",
-    #             "code": 400
-    #         }, status=200)
-
-    #     try:
-    #         court = Court.objects.get(id=court_id, location_id=location_id)
-    #     except Court.DoesNotExist:
-    #         return Response({
-    #             "message": "Invalid court for this location.",
-    #             "code": 400
-    #         }, status=200)
-
-    #     # Fetch bookings from now to next 7 days
-    #     bookings = CourtBooking.objects.filter(
-    #         court=court,
-    #         booking_date__range=(now.date(), end_date.date())
-    #     ).order_by("booking_date", "start_time")
-
-    #     slots = []
-    #     added_booking_ids = set()
-
-    #     for booked in bookings:
-    #         booking_start = datetime.combine(booked.booking_date, booked.start_time)
-    #         if booking_start < now:
-    #             continue  #  Skip past bookings
-
-    #         if booked.id in added_booking_ids:
-    #             continue
-
-    #         slots.append({
-    #             "code": len(slots) + 1,
-    #             "court_id": court.id,
-    #             "location_id": court.location_id.id,
-    #             "court_number": court.court_number, 
-    #             "booking_date": booked.booking_date.strftime("%Y-%m-%d"),
-    #             "status": "BOOKED",
-    #             "user_name": f"{booked.user.first_name} {booked.user.last_name}".strip(),
-    #             "start_time": booked.start_time.strftime("%H:%M"),
-    #             "end_time": booked.end_time.strftime("%H:%M")
-    #         })
-
-    #         added_booking_ids.add(booked.id)
-
-    #         if len(slots) == 4:
-    #             break
-
-    #     return Response({
-    #         "slots": slots,
-    #         "location_id": court.location_id.id
-    #     }, status=200)
-
-
-
-
-
-
-
 class MyLocationView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -2038,110 +1504,6 @@ class UsersInMyLocationView(APIView):
         return paginator.get_paginated_response(serializer.data)
 
 
-
-
-# class AdminCourtBookingListView(APIView):
-#     permission_classes = [IsAuthenticated]
-
-
-#     def get(self, request):
-#         admin = request.user
-
-#         if admin.user_type != 1:
-#             raise PermissionDenied("Only admins can access this data.")
-
-#         # Step 1: Get location IDs assigned to admin
-#         assigned_location_ids = admin.locations.values_list('id', flat=True)
-
-#         if not assigned_location_ids:
-#             return Response({
-#                 "message": "Admin is not assigned to any location.",
-#                 "status_code": 400
-#             }, status=400)
-
-#         #  Step 2: Get courts in those locations
-#         court_ids = Court.objects.filter(location_id__in=assigned_location_ids).values_list('id', flat=True)
-
-#         if not court_ids:
-#             return Response({
-#                 "message": "No courts found for assigned locations.",
-#                 "status_code": 200,
-#                 "results": []
-#             }, status=200)
-
-#         #  Step 3: Filter bookings
-#         bookings = CourtBooking.objects.filter(
-#             court_id__in=court_ids,
-#             user__locations__id__in=assigned_location_ids
-#         ).select_related('court', 'user').distinct()
-
-#         #  Step 4: Time-based filter
-#         status_param = request.query_params.get('status')  # 'past' or 'upcoming'
-#         now = timezone.now()
-#         today = now.date()
-#         time_now = now.time()
-
-#         if status_param == 'past':
-#             bookings = bookings.filter(
-#                 Q(booking_date__lt=today) |
-#                 Q(booking_date=today, end_time__lt=time_now)
-#             )
-#         elif status_param == 'upcoming':
-#             bookings = bookings.filter(
-#                 Q(booking_date__gt=today) |
-#                 Q(booking_date=today, end_time__gte=time_now)
-#             )
-
-
-#         status_param = request.query_params.get('status')  # values: 'past', 'upcoming'
-#         now = timezone.now()
-
-#         if status_param == 'past':
-#             bookings = bookings.filter(
-#                 Q(booking_date__lt=now.date()) |
-#                 Q(booking_date=now.date(), end_time__lt=now.time())
-#             )
-#         elif status_param == 'upcoming':
-#             bookings = bookings.filter(
-#                 Q(booking_date__gt=now.date()) |
-#                 Q(booking_date=now.date(), end_time__gte=now.time())
-#             )
-
-#         # #  Step 4.5: Optional date range filter
-#         start_date = request.query_params.get('start_date')
-#         end_date = request.query_params.get('end_date')
-
-#         if start_date and end_date:
-#             start = parse_date(start_date)
-#             end = parse_date(end_date)
-#             if start and end:
-#                 bookings = bookings.filter(booking_date__range=(start, end))
-
-
-
-
-#         # Step 5: Optional search filter
-#         search = request.query_params.get('search')
-#         if search:
-#             bookings = bookings.filter(
-#                 Q(user__first_name__icontains=search) |
-#                 Q(user__last_name__icontains=search) |
-#                 Q(user__email__icontains=search) |
-#                 Q(court__court_number__icontains=search)
-#             )
-
-#         #  Step 6: Order and paginate
-#         bookings = bookings.order_by('booking_date', 'start_time')
-#         paginator = LargeResultsSetPagination()
-#         page = paginator.paginate_queryset(bookings, request)
-#         serializer = AdminCourtBookingSerializer(page, many=True)
-
-#         # Attach custom fields to paginated response
-#         paginated_response = paginator.get_paginated_response(serializer.data)
-#         paginated_response.data["message"] = "Court bookings fetched successfully."
-#         paginated_response.data["status_code"] = 200
-
-#         return paginated_response
 
 
 class AdminCourtBookingListView(APIView):
