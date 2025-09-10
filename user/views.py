@@ -968,6 +968,10 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
 
         # After saving, check if status changed to confirmed
         booking = serializer.instance
+        
+        if booking.id:  
+          CourtBooking.objects.filter(parent_booking=str(booking.id)).update(status=booking.status)
+        
         if old_status != "confirmed" and booking.status == "confirmed":
             try:
                 
