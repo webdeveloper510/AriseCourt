@@ -1065,7 +1065,7 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
             main_booking = serializer.save(user=user)
 
         # MailUtils.booking_confirmation_mail(user, main_booking)
-        # created_bookings.append(main_booking)
+        created_bookings.append(main_booking)
 
         # Repeat for next 3 weeks (if book_for_four_weeks is true)
         if book_for_four_weeks:
