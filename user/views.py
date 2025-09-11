@@ -20,6 +20,7 @@ from django.db.models import Sum, F, FloatField
 from rest_framework.viewsets import ModelViewSet
 # from django.utils.timezone import now
 from django.utils import timezone
+from zoneinfo import ZoneInfo
 import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
@@ -35,6 +36,7 @@ from django.db.models import Q, Value, CharField
 from django.db.models.functions import Concat
 import openpyxl
 from io import BytesIO
+
 
 # Create your views here.
 
@@ -639,6 +641,8 @@ from django.db.models import Q, F, Value, CharField, ExpressionWrapper, DateTime
 
 
 
+timezone.activate(ZoneInfo("America/Chicago"))
+
 class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
@@ -651,7 +655,8 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
                      'court__location_id__address_3','court__location_id__address_4']
 
     def list(self, request, *args, **kwargs):
-        now = timezone.now()
+        # now = timezone.now()
+        now = timezone.localtime(timezone.now())
         print("hhhhhhhhhhhhhhh",now)
         booking_type = request.query_params.get('type') 
         search = request.query_params.get('search')
