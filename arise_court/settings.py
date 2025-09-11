@@ -134,7 +134,7 @@ LANGUAGE_CODE = 'en-us'
 # USE_TZ = True   
 USE_I18N = True
 
-TIME_ZONE = "America/New_York"
+TIME_ZONE = "America/Chicago"
 USE_TZ = True
 
 AUTH_USER_MODEL = 'user.User'
