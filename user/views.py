@@ -18,7 +18,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum, F, FloatField
 from rest_framework.viewsets import ModelViewSet
-from django.utils.timezone import now
+# from django.utils.timezone import now
+from django.utils import timezone
 import random
 from rest_framework import viewsets, filters
 from rest_framework.pagination import PageNumberPagination
@@ -841,17 +842,35 @@ class CourtBookingViewSet(viewsets.ModelViewSet):
         try:
             start_time = datetime.strptime(start, "%H:%M:%S").time()
             end_time = datetime.strptime(end, "%H:%M:%S").time()
+            
+            
+            booking_date_obj = datetime.strptime(booking_date, "%Y-%m-%d").date()
 
-            start_combined = datetime.combine(date.min, start_time)
-            end_combined = datetime.combine(date.min, end_time)
+            # start_combined = datetime.combine(date.min, start_time)
+            # end_combined = datetime.combine(date.min, end_time)
+            
+            start_combined = datetime.combine(booking_date_obj, start_time)
+            end_combined = datetime.combine(booking_date_obj, end_time)
 
             if end_combined <= start_combined:
                 # Overnight booking → move end to next day
                 end_combined += timedelta(days=1)
+                
+                
+            start_dt = timezone.make_aware(start_dt, timezone=timezone.utc)
+            end_dt = timezone.make_aware(end_dt, timezone=timezone.utc)
 
-            duration_timedelta = end_combined - start_combined
-            duration = str(duration_timedelta)   # store as string
-            data['duration_time'] = duration
+            # Save to data dict so serializer stores them
+            data['start_datetime'] = start_dt
+            data['end_datetime'] = end_dt
+
+            # Duration
+            duration_timedelta = end_dt - start_dt
+            data['duration_time'] = str(duration_timedelta)    
+
+            # duration_timedelta = end_combined - start_combined
+            # duration = str(duration_timedelta)   # store as string
+            # data['duration_time'] = duration
 
         except:
             return Response({"message": "Invalid time format. Use HH:MM:SS", 'code': '400'}, status=status.HTTP_200_OK)
