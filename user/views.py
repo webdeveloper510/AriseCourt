@@ -661,7 +661,7 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
         # Annotate combined datetime (date + start_time)
         bookings = bookings.annotate(
             booking_datetime=ExpressionWrapper(
-                F('booking_date') + F('start_time'),
+                F('booking_date') + F('end_time'),
                 output_field=DateTimeField()
             )
         )
@@ -715,12 +715,12 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
             bookings = bookings.filter(
                 Q(booking_date__lt=now.date()) |
                 Q(booking_date=now.date(), end_time__lt=now.time())
-            ).order_by('-booking_date', '-start_time')
+            ).order_by('-booking_date', '-end_time')
         else:
             bookings = bookings.filter(
                 Q(booking_date__gt=now.date()) |
                 Q(booking_date=now.date(), end_time__gte=now.time())
-            ).order_by('booking_date', 'start_time')
+            ).order_by('booking_date', 'end_time')
 
         # Pagination
         page = self.paginate_queryset(bookings)
