@@ -638,6 +638,7 @@ class AdminViewSet(viewsets.ModelViewSet):
 from django.db.models import Q, F, Value, CharField, ExpressionWrapper, DateTimeField
 
 
+
 class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
     queryset = CourtBooking.objects.all()
     serializer_class = CourtBookingSerializer
@@ -651,7 +652,7 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         now = timezone.now()
-        print("hhhhhhhhhhhhhhh*************",now)
+        print("hhhhhhhhhhhhhhh",now)
         booking_type = request.query_params.get('type') 
         search = request.query_params.get('search')
         start_date = request.query_params.get('start_date')
