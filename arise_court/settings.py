@@ -134,7 +134,7 @@ TIME_ZONE = 'UTC'
 
 USE_I18N = True
 
-USE_TZ = True
+USE_TZ = True   
 
 AUTH_USER_MODEL = 'user.User'
 # Static files (CSS, JavaScript, Images)

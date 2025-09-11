@@ -651,6 +651,7 @@ class CourtBookingWithoutTokenViewSet(viewsets.ModelViewSet):
 
     def list(self, request, *args, **kwargs):
         now = timezone.now()
+        print("hhhhhhhhhhhhhhh*************",now)
         booking_type = request.query_params.get('type') 
         search = request.query_params.get('search')
         start_date = request.query_params.get('start_date')
