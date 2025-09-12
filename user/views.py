@@ -1295,7 +1295,8 @@ def stripe_webhook(request):
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
 
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
-    current_time = timezone.localtime(timezone.now())
+    # current_time = timezone.localtime(timezone.now())
+    now = datetime.now()
     
 
     try:
@@ -1325,7 +1326,7 @@ def stripe_webhook(request):
                     "amount": amount_received,
                     "payment_status": "successful",
                     "stripe_customer_id": customer_id,
-                    "payment_date": current_time(),
+                    "payment_date": now(),
                 }
             )
 
