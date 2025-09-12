@@ -1326,7 +1326,7 @@ def stripe_webhook(request):
                     "amount": amount_received,
                     "payment_status": "successful",
                     "stripe_customer_id": customer_id,
-                    "payment_date": now(),
+                    "payment_date": now,
                 }
             )
 
