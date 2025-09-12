@@ -1808,3 +1808,13 @@ class UserRegisterView(APIView):
             "errors": serializer.errors,
             "message": "User registration failed."
         }, status=status.HTTP_400_BAD_REQUEST)
+        
+        
+        
+
+
+class StripeKeysAPIView(APIView):
+    def get(self, request, *args, **kwargs):
+        return Response({
+            "publishableKey": settings.STRIPE_PUBLISHABLE_KEY,
+        })        
