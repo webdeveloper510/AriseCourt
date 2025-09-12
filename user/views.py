@@ -1295,6 +1295,7 @@ def stripe_webhook(request):
     sig_header = request.META.get('HTTP_STRIPE_SIGNATURE')
 
     endpoint_secret = settings.STRIPE_WEBHOOK_SECRET
+    now = timezone.localtime(timezone.now())
     
 
     try:
