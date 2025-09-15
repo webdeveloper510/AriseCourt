@@ -27,6 +27,11 @@ DOMAIN_URL = config('DOMAIN_URL')
 ALLOWED_HOSTS = ['*']
 
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://api.get1court.com",
+    "https://www.api.get1court.com",  # add if you use www
+]
+
 # Application definition
 
 INSTALLED_APPS = [
