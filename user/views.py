@@ -1794,6 +1794,7 @@ class DeletePendingBookingsAPIView(APIView):
     
 
 class UserRegisterView(APIView):
+    
     def post(self, request):
         serializer = UserRegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -1803,11 +1804,34 @@ class UserRegisterView(APIView):
                 "message": "Please check your email to verify your account before logging in.",
                 "status": status.HTTP_201_CREATED
             }, status=status.HTTP_201_CREATED)
+
+        # Flatten errors (combine all messages into a single list)
+        flat_errors = []
+        for field, messages in serializer.errors.items():
+            flat_errors.extend(messages)
+
         return Response({
             "code": "400",
-            "errors": serializer.errors,
+            "errors": flat_errors,
             "message": "User registration failed."
         }, status=status.HTTP_400_BAD_REQUEST)
+    
+    
+    
+    # def post(self, request):
+    #     serializer = UserRegisterSerializer(data=request.data)
+    #     if serializer.is_valid():
+    #         user = serializer.save()
+    #         MailUtils.send_verification_email(user)
+    #         return Response({
+    #             "message": "Please check your email to verify your account before logging in.",
+    #             "status": status.HTTP_201_CREATED
+    #         }, status=status.HTTP_201_CREATED)
+    #     return Response({
+    #         "code": "400",
+    #         "errors": serializer.errors,
+    #         "message": "User registration failed."
+    #     }, status=status.HTTP_400_BAD_REQUEST)
         
         
         
