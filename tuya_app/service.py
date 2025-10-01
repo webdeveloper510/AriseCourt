@@ -19,6 +19,8 @@ cloud = Cloud(
 
 def list_devices():
     """Get all devices"""
+    devices = cloud.getdevices()
+    print("Devices:", devices)
     print("999999999999999999",cloud.getdevices())
     return cloud.getdevices()
 
