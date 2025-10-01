@@ -2,8 +2,11 @@
 # Ignore Environment fike
 env
 
+temp_auto_push.bat
 # Ignore Virtuale env
 myenv
 
 # Ignore Database
 db.sqlite3.env
+.gitignore
+temp_interactive_push.bat

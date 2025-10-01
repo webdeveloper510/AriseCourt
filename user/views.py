@@ -154,13 +154,28 @@ class UserCreateView(APIView):
     
 
 class UserDeleteView(APIView):
-    def delete(self, request, user_id):
+    
+    def delete(self, request):
+        user_id = request.data.get("user_id")  # get id from request body
+        if not user_id:
+            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+
         user = get_object_or_404(User, id=user_id)
         user.delete()
         return Response({
             "message": "User deleted successfully.",
             "status": status.HTTP_200_OK
         }, status=status.HTTP_200_OK)
+    
+    
+    
+    # def delete(self, request, user_id):
+    #     user = get_object_or_404(User, id=user_id)
+    #     user.delete()
+    #     return Response({
+    #         "message": "User deleted successfully.",
+    #         "status": status.HTTP_200_OK
+    #     }, status=status.HTTP_200_OK)
 
     
 
